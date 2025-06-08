@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>OToTicket EWS</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 20px; }
+    .container { max-width: 500px; padding: 20px; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-weight: 600; margin-bottom: 4px; display: block; }
+    .form-input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    .btn { padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-right: 8px; }
+    .btn-primary { background: #0078d4; color: #fff; }
+    .btn-secondary { background: #6c757d; color: #fff; }
+    .info { margin-bottom: 10px; padding: 10px; background: #d1ecf1; color: #0c5460; border-radius: 4px; }
+    .error { margin-bottom: 10px; padding: 10px; background: #f8d7da; color: #721c24; border-radius: 4px; }
+    .success { margin-bottom: 10px; padding: 10px; background: #d4edda; color: #155724; border-radius: 4px; }
+    .debug { margin-top: 10px; padding: 10px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    .status { margin-bottom: 10px; padding: 10px; background: #e2e3e5; color: #383d41; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>OToTicket EWS</h2>
+    <div id="status" class="status">Lade Office.js...</div>
+    <div id="notifications"></div>
+
+    <div class="form-group">
+      <label class="form-label">Ticket (4 Ziffern)</label>
+      <input type="text" id="ticket" class="form-input" maxlength="4" pattern="[0-9]*" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Zielordner</label>
+      <select id="folderSelect" class="form-input">
+        <option value="">— lade Ordner… —</option>
+      </select>
+    </div>
+
+    <button class="btn btn-primary" onclick="copyEmail()" disabled id="copyBtn">E‑Mail kopieren</button>
+    <button class="btn btn-secondary" onclick="closeDialog()" id="cancelBtn">Abbrechen</button>
+    
+    <div style="margin-top: 20px;">
+      <label>
+        <input type="checkbox" id="debugMode" onchange="toggleDebug()"> Debug-Modus
+      </label>
+    </div>
+    <div id="debugOutput" class="debug" style="display: none;"></div>
+  </div>
+
+  <script>
+    let emailData = {};
+    let debugMode = false;
+    let officeReady = false;
+    let initTimeout;
+
+    // Status-Updates
+    function updateStatus(message) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.innerText = message;
+      debugLog('Status: ' + message);
+    }
+
+    function toggleDebug() {
+      debugMode = document.getElementById('debugMode').checked;
+      const debugOutput = document.getElementById('debugOutput');
+      debugOutput.style.display = debugMode ? 'block' : 'none';
+      if (!debugMode) debugOutput.innerHTML = '';
+    }
+
+    function debugLog(message) {
+      if (debugMode) {
+        const debugOutput = document.getElementById('debugOutput');
+        debugOutput.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+        debugOutput.scrollTop = debugOutput.scrollHeight;
+      }
+      console.log('OToTicket: ' + message);
+    }
+
+    function notify(type, text) {
+      const div = document.createElement('div');
+      div.className = type;
+      div.innerText = text;
+      const nm = document.getElementById('notifications');
+      nm.innerHTML = '';
+      nm.appendChild(div);
+      debugLog(`Notification (${type}): ${text}`);
+    }
+
+    function escapeXml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
+
+    // Initialisierung mit mehreren Fallbacks
+    function initializeAddin() {
+      debugLog('Initializing addin...');
+      updateStatus('Initialisiere Add-in...');
+
+      // Timeout für Office.js
+      initTimeout = setTimeout(function() {
+        if (!officeReady) {
+          debugLog('Office.js timeout - trying fallback initialization');
+          updateStatus('Office.js Timeout - versuche Fallback...');
+          fallbackInitialization();
+        }
+      }, 10000);
+
+      // Prüfen ob Office bereits verfügbar ist
+      if (typeof Office !== 'undefined') {
+        debugLog('Office object found, calling Office.onReady');
+        Office.onReady(function(info) {
+          handleOfficeReady(info);
+        });
+      } else {
+        debugLog('Office object not found, waiting...');
+        // Warten und nochmal versuchen
+        setTimeout(function() {
+          if (typeof Office !== 'undefined') {
+            Office.onReady(function(info) {
+              handleOfficeReady(info);
+            });
+          } else {
+            fallbackInitialization();
+          }
+        }, 2000);
+      }
+    }
+
+    function handleOfficeReady(info) {
+      clearTimeout(initTimeout);
+      officeReady = true;
+      
+      debugLog('Office.onReady called successfully');
+      debugLog('Host: ' + (info ? info.host : 'unknown'));
+      debugLog('Platform: ' + (info ? info.platform : 'unknown'));
+      
+      updateStatus('Office.js geladen - lade E-Mail Daten...');
+
+      // Prüfen ob wir im richtigen Kontext sind
+      if (!Office.context || !Office.context.mailbox) {
+        debugLog('No mailbox context available');
+        updateStatus('Fehler: Kein Mailbox-Kontext verfügbar');
+        notify('error', 'Add-in nicht im korrekten E-Mail-Kontext gestartet');
+        return;
+      }
+
+      // Buttons aktivieren
+      document.getElementById('copyBtn').disabled = false;
+      
+      // E-Mail Daten und Ordner laden
+      loadEmailData();
+      loadFolders();
+    }
+
+    function fallbackInitialization() {
+      debugLog('Fallback initialization');
+      updateStatus('Fallback-Initialisierung...');
+      
+      // Prüfen ob Office-Objekte verfügbar sind
+      if (typeof Office === 'undefined' || 
+          !Office.context || 
+          !Office.context.mailbox) {
+        updateStatus('Fehler: Office.js nicht verfügbar');
+        notify('error', 'Office.js konnte nicht geladen werden. Bitte Add-in neu starten.');
+        return;
+      }
+
+      // Manuell initialisieren
+      officeReady = true;
+      document.getElementById('copyBtn').disabled = false;
+      loadEmailData();
+      loadFolders();
+    }
+
+    function loadEmailData() {
+      debugLog('Loading email data...');
+      
+      try {
+        const item = Office.context.mailbox.item;
+        if (!item) {
+          debugLog('No mail item available');
+          updateStatus('Fehler: Keine E-Mail ausgewählt');
+          return;
+        }
+
+        emailData.subject = item.subject || '';
+        emailData.body = '';
+        emailData.to = item.to || [];
+        
+        debugLog('Email subject: ' + emailData.subject);
+
+        // Body asynchron laden
+        item.body.getAsync('html', function(res) {
+          if (res.status === Office.AsyncResultStatus.Succeeded) {
+            emailData.body = res.value;
+            debugLog('Email body loaded successfully');
+          } else {
+            debugLog('Error loading email body: ' + (res.error ? res.error.message : 'Unknown error'));
+          }
+        });
+
+        updateStatus('E-Mail Daten geladen - lade Ordner...');
+        
+      } catch (error) {
+        debugLog('Error in loadEmailData: ' + error.message);
+        updateStatus('Fehler beim Laden der E-Mail Daten');
+        notify('error', 'Fehler beim Laden der E-Mail Daten: ' + error.message);
+      }
+    }
+
+    function loadFolders() {
+      debugLog('Starting to load folders...');
+      
+      try {
+        // Einfacher SOAP Request für Exchange 2016
+        const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
+          <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                         xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                         xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+            <soap:Header>
+              <t:RequestServerVersion Version="Exchange2013" />
+            </soap:Header>
+            <soap:Body>
+              <m:FindFolder Traversal="Shallow">
+                <m:FolderShape>
+                  <t:BaseShape>Default</t:BaseShape>
+                </m:FolderShape>
+                <m:ParentFolderIds>
+                  <t:DistinguishedFolderId Id="msgfolderroot" />
+                </m:ParentFolderIds>
+              </m:FindFolder>
+            </soap:Body>
+          </soap:Envelope>`;
+
+        debugLog('Sending EWS request...');
+        
+        Office.context.mailbox.makeEwsRequestAsync(soapRequest, function (result) {
+          debugLog('EWS request completed with status: ' + result.status);
+          
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            debugLog('EWS request successful');
+            processFolderResponse(result.value);
+          } else {
+            const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
+            debugLog('EWS request failed: ' + errorMsg);
+            updateStatus('Fehler beim Laden der Ordner');
+            notify('error', 'Ordner konnten nicht geladen werden: ' + errorMsg);
+            
+            // Fallback: Einige Standard-Ordner hinzufügen
+            addFallbackFolders();
+          }
+        });
+        
+      } catch (error) {
+        debugLog('Error in loadFolders: ' + error.message);
+        updateStatus('Fehler beim Laden der Ordner');
+        notify('error', 'Fehler beim Laden der Ordner: ' + error.message);
+        addFallbackFolders();
+      }
+    }
+
+    function processFolderResponse(xmlResponse) {
+      debugLog('Processing folder response...');
+      
+      try {
+        const folderSelect = document.getElementById("folderSelect");
+        folderSelect.innerHTML = '<option value="">— bitte wählen —</option>';
+
+        const xmlDoc = new DOMParser().parseFromString(xmlResponse, "text/xml");
+        const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
+        
+        debugLog(`Found ${folders.length} folders`);
+
+        let addedFolders = 0;
+        for (let i = 0; i < folders.length; i++) {
+          const folder = folders[i];
+          const displayNameElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "DisplayName")[0];
+          const folderIdElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "FolderId")[0];
+
+          if (!displayNameElem || !folderIdElem) continue;
+
+          const displayName = displayNameElem.textContent;
+          const folderId = folderIdElem.getAttribute("Id");
+          const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
+
+          // System-Ordner filtern
+          if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
+            continue;
+          }
+
+          const value = folderId + ";" + changeKey;
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = displayName;
+          folderSelect.appendChild(option);
+          addedFolders++;
+        }
+
+        // Gespeicherten Ordner wiederherstellen
+        const savedFolder = Office.context.roamingSettings.get("lastSelectedFolder");
+        if (savedFolder) {
+          folderSelect.value = savedFolder;
+        }
+
+        updateStatus(`${addedFolders} Ordner geladen - bereit`);
+        notify('success', `${addedFolders} Ordner erfolgreich geladen`);
+        
+      } catch (error) {
+        debugLog('Error processing folders: ' + error.message);
+        updateStatus('Fehler beim Verarbeiten der Ordner');
+        addFallbackFolders();
+      }
+    }
+
+    function addFallbackFolders() {
+      debugLog('Adding fallback folders...');
+      const folderSelect = document.getElementById("folderSelect");
+      folderSelect.innerHTML = '<option value="">— bitte wählen —</option>';
+      
+      // Einige Standard-Ordner hinzufügen
+      const fallbackFolders = [
+        { name: "Posteingang", id: "inbox;" },
+        { name: "Gesendete Objekte", id: "sentitems;" },
+        { name: "Entwürfe", id: "drafts;" }
+      ];
+      
+      fallbackFolders.forEach(folder => {
+        const option = document.createElement("option");
+        option.value = folder.id;
+        option.textContent = folder.name;
+        folderSelect.appendChild(option);
+      });
+      
+      updateStatus('Fallback-Ordner geladen - bereit');
+      notify('info', 'Standard-Ordner geladen (Ordner-Laden fehlgeschlagen)');
+    }
+
+    function copyEmail() {
+      debugLog('Copy email function called');
+      
+      if (!officeReady) {
+        notify('error', 'Add-in noch nicht bereit');
+        return;
+      }
+
+      const ticket = document.getElementById('ticket').value.trim();
+      const folderSelect = document.getElementById('folderSelect');
+      const folderValue = folderSelect.value;
+
+      if (!/^[0-9]{4}$/.test(ticket)) {
+        notify('error', 'Ticket muss 4 Ziffern haben');
+        return;
+      }
+      if (!folderValue) {
+        notify('error', 'Zielordner wählen');
+        return;
+      }
+
+      notify('info', 'E‑Mail wird kopiert…');
+      debugLog('Starting email copy process...');
+
+      try {
+        const [folderId, changeKey] = folderValue.split(";");
+        
+        // Für Fallback-Ordner (distinguished folder IDs)
+        let targetFolder;
+        if (folderId === 'inbox') {
+          targetFolder = '<t:DistinguishedFolderId Id="inbox" />';
+        } else if (folderId === 'sentitems') {
+          targetFolder = '<t:DistinguishedFolderId Id="sentitems" />';
+        } else if (folderId === 'drafts') {
+          targetFolder = '<t:DistinguishedFolderId Id="drafts" />';
+        } else {
+          targetFolder = `<t:FolderId Id="${escapeXml(folderId)}" ChangeKey="${escapeXml(changeKey)}"/>`;
+        }
+
+        const copySoap = `<?xml version="1.0" encoding="utf-8"?>
+          <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                         xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                         xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+            <soap:Header>
+              <t:RequestServerVersion Version="Exchange2013"/>
+            </soap:Header>
+            <soap:Body>
+              <m:CopyItem>
+                <m:ToFolderId>
+                  ${targetFolder}
+                </m:ToFolderId>
+                <m:ItemIds>
+                  <t:ItemId Id="${escapeXml(Office.context.mailbox.item.itemId)}"/>
+                </m:ItemIds>
+              </m:CopyItem>
+            </soap:Body>
+          </soap:Envelope>`;
+
+          // 1) Email kopieren
+        Office.context.mailbox.makeEwsRequestAsync(copySoap, function(result) {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            debugLog('Email copy successful');            
+            // Für einfache Implementierung - nur Erfolgsmeldung
+            notify('success', 'E-Mail wurde erfolgreich kopiert');
+            
+          // 2) Betreff anpassen
+          const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
+          const copiedItem = responseXml.getElementsByTagName('t:ItemId')[0];
+          if (copiedItem) {    
+            const newItemId = copiedItem.getAttribute('Id');
+            const newChangeKey = copiedItem.getAttribute('ChangeKey');
+            const newSubject = `[MCB#${ticket}] ${emailData.subject}`;
+            updateSubject(newItemId, newChangeKey, newSubject);
+
+          }
+            // Letzten Ordner speichern
+            Office.context.roamingSettings.set("lastSelectedFolder", folderValue);
+            Office.context.roamingSettings.saveAsync();
+            
+          } else {
+            const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
+            notify('error', 'Fehler beim Kopieren: ' + errorMsg);
+            debugLog('Copy error: ' + errorMsg);
+          }
+        });
+        
+      } catch (error) {
+        debugLog('Error in copyEmail: ' + error.message);
+        notify('error', 'Fehler beim Kopieren: ' + error.message);
+      }
+    }
+function updateSubject(itemId, changeKey, newSubject) {
+      const updateSoap = `
+        <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                       xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                       xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+          <soap:Header>
+            <t:RequestServerVersion Version="Exchange2013" />
+          </soap:Header>
+          <soap:Body>
+            <m:UpdateItem MessageDisposition="SaveOnly" ConflictResolution="AutoResolve">
+              <m:ItemChanges>
+                <t:ItemChange>
+                  <t:ItemId Id="${escapeXml(itemId)}" ChangeKey="${escapeXml(changeKey)}"/>
+                  <t:Updates>
+                    <t:SetItemField>
+                      <t:FieldURI FieldURI="item:Subject" />
+                      <t:Message>
+                        <t:Subject>${escapeXml(newSubject)}</t:Subject>
+                      </t:Message>
+                    </t:SetItemField>
+                  </t:Updates>
+                </t:ItemChange>
+              </m:ItemChanges>
+            </m:UpdateItem>
+          </soap:Body>
+        </soap:Envelope>`;
+
+      Office.context.mailbox.makeEwsRequestAsync(updateSoap, result => {
+        if (result.status === Office.AsyncResultStatus.Succeeded) {
+          notify('success', 'E-Mail wurde erfolgreich kopiert und Betreff angepasst.');
+        } else {
+          notify('error', 'Fehler beim Aktualisieren des Betreffs: ' + result.error.message);
+        }
+      });
+    }
+    function closeDialog() {
+      debugLog('Close dialog called');
+      
+      try {
+        if (typeof Office !== 'undefined' && 
+            Office.context && 
+            Office.context.ui && 
+            Office.context.ui.closeContainer) {
+          Office.context.ui.closeContainer();
+        } else if (window.close) {
+          window.close();
+        } else {
+          // Fallback: Dialog verstecken
+          document.body.style.display = 'none';
+        }
+      } catch (error) {
+        debugLog('Error closing dialog: ' + error.message);
+        // Letzter Fallback
+        if (window.close) window.close();
+      }
+    }
+
+    // Initialisierung starten, wenn DOM bereit ist
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeAddin);
+    } else {
+      initializeAddin();
+    }
+
+    // Zusätzlicher Fallback nach Seitenladung
+    window.addEventListener('load', function() {
+      if (!officeReady) {
+        debugLog('Window load event - Office still not ready, trying again...');
+        setTimeout(function() {
+          if (!officeReady) {
+            fallbackInitialization();
+          }
+        }, 1000);
+      }
+    });
+  </script>
+</body>
+</html>

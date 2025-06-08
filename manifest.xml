@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+[PS] C:\Windows\system32>New-App -OrganizationApp -FileData ([System.IO.File]::ReadAllBytes("C:\OToTicket\manifest.xml"))
+
+[PS] C:\Windows\system32>Get-App -OrganizationApp | ft DisplayName, AppId
+
+[PS] C:\Windows\system32>Remove-App -OrganizationApp -Identity "12345678-1234-1234-1234-123456789012"
+
+-->
+
+<OfficeApp 
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:type="MailApp">
+  <Id>12345678-1234-1234-1234-123456789012</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Ihre Firma</ProviderName>
+  <DefaultLocale>de-DE</DefaultLocale>
+  <DisplayName DefaultValue="OToTicket"/>
+  <Description DefaultValue="Erstellt Tickets aus E-Mails"/>
+  <IconUrl DefaultValue="https://mail.ulewu.de/OToTicket/icon.png"/>
+  <HighResolutionIconUrl DefaultValue="https://mail.ulewu.de/OToTicket/icon-hr.png"/>
+  <SupportUrl DefaultValue="https://mail.ulewu.de/OToTicket/index.html"/>
+
+  <Hosts>
+    <Host Name="Mailbox"/>
+  </Hosts>
+
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.1"/>
+    </Sets>
+  </Requirements>
+
+  <FormSettings>
+    <Form xsi:type="ItemRead">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://mail.ulewu.de/OToTicket/taskpane.html"/>
+        <RequestedHeight>450</RequestedHeight>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+
+  <Permissions>ReadWriteMailbox</Permissions>
+
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Read"/>
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit"/>
+  </Rule>
+
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+</OfficeApp>
