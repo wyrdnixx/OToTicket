@@ -1,4 +1,8 @@
 
+# Mail2Ticket
+## Office / Outlook 2024
+## Copy Mails to Ticket Pickup folder and change Subject to Ticket-ID
+
 [PS] C:\Windows\system32>New-App -OrganizationApp -FileData ([System.IO.File]::ReadAllBytes("C:\OToTicket\manifest.xml"))
 
 
