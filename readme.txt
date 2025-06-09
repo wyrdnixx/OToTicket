@@ -28,3 +28,12 @@ Get-App -Mailbox "ulewu@chaos.local"
 
 localhost:8080/api/tickets/suggestions?q=test
 
+
+
+select tn, ticket.title, name  from ticket 
+    left join ticket_type on ticket.type_id = ticket_type.id 
+    left join customer_user on ticket.customer_user_id = customer_user.login
+    where tn like '%test%' 
+    or ticket.title like '%test%'
+    or email like 'test@ulewu.de'
+    LIMIT 10;

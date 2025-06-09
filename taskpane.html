@@ -5,73 +5,316 @@
   <title>OToTicket EWS</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; margin: 20px; }
-    .container { max-width: 500px; padding: 20px; background: #fff; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .form-group { margin-bottom: 16px; }
-    .form-label { font-weight: 600; margin-bottom: 4px; display: block; }
-    .form-input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-    .btn { padding: 10px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; margin-right: 8px; }
-    .btn-primary { background: #0078d4; color: #fff; }
-    .btn-secondary { background: #6c757d; color: #fff; }
-    .info { margin-bottom: 10px; padding: 10px; background: #d1ecf1; color: #0c5460; border-radius: 4px; }
-    .error { margin-bottom: 10px; padding: 10px; background: #f8d7da; color: #721c24; border-radius: 4px; }
-    .success { margin-bottom: 10px; padding: 10px; background: #d4edda; color: #155724; border-radius: 4px; }
-    .debug { margin-top: 10px; padding: 10px; background: #fff3cd; color: #856404; border-radius: 4px; font-size: 12px; max-height: 200px; overflow-y: auto; }
-    .status { margin-bottom: 10px; padding: 10px; background: #e2e3e5; color: #383d41; border-radius: 4px; font-size: 12px; }
+    body { 
+      font-family: 'Segoe UI', sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background: #f5f5f5;
+    }
+    .container { 
+      max-width: 500px; 
+      padding: 20px; 
+      background: #fff; 
+      border-radius: 8px; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .form-group { 
+      margin-bottom: 16px; 
+    }
+    .form-label { 
+      font-weight: 600; 
+      margin-bottom: 6px; 
+      display: block; 
+      color: #323130;
+    }
+    .form-input, select { 
+      width: 100%; 
+      padding: 10px; 
+      border: 1px solid #d1d1d1; 
+      border-radius: 4px; 
+      font-size: 14px;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus, select:focus {
+      border-color: #0078d4;
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+    }
+    .btn { 
+      padding: 12px 20px; 
+      border: none; 
+      border-radius: 4px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      margin-right: 8px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-primary { 
+      background: #0078d4; 
+      color: #fff; 
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #106ebe;
+    }
+    .btn-secondary { 
+      background: #6c757d; 
+      color: #fff; 
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #5a6268;
+    }
+    .btn-success {
+      background: #28a745;
+      color: #fff;
+    }
+    .btn-success:hover:not(:disabled) {
+      background: #218838;
+    }
+    .info { 
+      margin-bottom: 10px; 
+      padding: 12px; 
+      background: #cce7ff; 
+      color: #004578; 
+      border-radius: 4px;
+      border-left: 4px solid #0078d4;
+    }
+    .error { 
+      margin-bottom: 10px; 
+      padding: 12px; 
+      background: #fde7e9; 
+      color: #721c24; 
+      border-radius: 4px;
+      border-left: 4px solid #dc3545;
+    }
+    .success { 
+      margin-bottom: 10px; 
+      padding: 12px; 
+      background: #d4edda; 
+      color: #155724; 
+      border-radius: 4px;
+      border-left: 4px solid #28a745;
+    }
+    .warning {
+      margin-bottom: 10px; 
+      padding: 12px; 
+      background: #fff3cd; 
+      color: #856404; 
+      border-radius: 4px;
+      border-left: 4px solid #ffc107;
+    }
+    .debug { 
+      margin-top: 10px; 
+      padding: 12px; 
+      background: #f8f9fa; 
+      color: #495057; 
+      border-radius: 4px; 
+      font-size: 12px; 
+      max-height: 250px; 
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+    }
+    .status { 
+      margin-bottom: 10px; 
+      padding: 12px; 
+      background: #e9ecef; 
+      color: #495057; 
+      border-radius: 4px; 
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+    }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #dee2e6;
+      border-top: 2px solid #0078d4;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .ticket-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    .ticket-item {
+      padding: 10px;
+      border-bottom: 1px solid #f1f1f1;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .ticket-item:hover {
+      background-color: #f8f9fa;
+    }
+    .ticket-item.selected {
+      background-color: #e6f4ff;
+      border-color: #0078d4;
+    }
+    .ticket-item:last-child {
+      border-bottom: none;
+    }
+    .search-input {
+      margin-bottom: 8px;
+    }
+    .input-group {
+      position: relative;
+    }
+    .input-validation {
+      font-size: 12px;
+      margin-top: 4px;
+      min-height: 16px;
+    }
+    .input-validation.valid {
+      color: #28a745;
+    }
+    .input-validation.invalid {
+      color: #dc3545;
+    }
+    h2 {
+      margin-top: 0;
+      color: #323130;
+      font-size: 20px;
+    }
+    h3 {
+      color: #323130;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Mail2Ticket EWS</h2>
-    <div id="status" class="status">Lade Office.js...</div>
+    <h2>📧 Mail2Ticket EWS</h2>
+    <div id="status" class="status">
+      <div class="spinner"></div>
+      Lade Office.js...
+    </div>
     <div id="notifications"></div>
 
     <div class="form-group">
-      <label class="form-label">Ticket (4 Ziffern)</label>
-      <input type="text" id="ticket" class="form-input" maxlength="4" pattern="[0-9]*" />
+      <label class="form-label">🎫 Ticket Nummer (16 Ziffern)</label>
+      <div class="input-group">
+        <input 
+          type="text" 
+          id="ticket" 
+          class="form-input" 
+          maxlength="16" 
+          pattern="[0-9]*" 
+          placeholder="z.B. 1234"
+          oninput="validateTicket()"
+        />
+        <div id="ticketValidation" class="input-validation"></div>
+      </div>
     </div>
 
     <div class="form-group">
-      <label class="form-label">Zielordner</label>
+      <label class="form-label">📁 Zielordner</label>
       <select id="folderSelect" class="form-input">
-        <option value="">— lade Ordner… —</option>
+        <option value="">🔄 Lade Ordner...</option>
       </select>
     </div>
 
-    <button class="btn btn-primary" onclick="copyEmail()" disabled id="copyBtn">E‑Mail kopieren</button>
-    <button class="btn btn-secondary" onclick="closeDialog()" id="cancelBtn">Abbrechen</button>
+    <div style="margin-bottom: 16px;">
+      <button class="btn btn-primary" onclick="copyEmail()" disabled id="copyBtn">
+        📋 E‑Mail kopieren
+      </button>
+      <button class="btn btn-secondary" onclick="closeDialog()" id="cancelBtn">
+        ❌ Abbrechen
+      </button>
+    </div>
     
-    <div style="margin-top: 20px;">
-      <label>
-        <input type="checkbox" id="debugMode" onchange="toggleDebug()"> Debug-Modus
-      </label>
+    <div class="checkbox-group">
+      <input type="checkbox" id="debugMode" onchange="toggleDebug()">
+      <label for="debugMode">🐛 Debug-Modus</label>
     </div>
     <div id="debugOutput" class="debug" style="display: none;"></div>
   </div>
 
+  <div class="container">
+    <h3>🔍 Ticket Suche</h3>
+    <div class="form-group">
+      <input 
+        type="text" 
+        id="searchInput" 
+        class="form-input search-input" 
+        placeholder="Nach Tickets suchen..."
+        oninput="debounceSearch()"
+      >
+      <button class="btn btn-success" id="ticketSearchBtn" onclick="fetchTickets()">
+        🔍 Suchen
+      </button>
+    </div>
 
-  <div class="container" style="margin-top: 20px;">
-  <p>Ticket Search</p>
-  <button class="ms-Button" id="ticketSearchBtn">
-    <span class="ms-Button-label">ticketSearch</span>
-  </button>
-
-  <ul id="ticketList" class="ms-List"></ul>
-
-  <div id="selectedTicket" class="ms-font-m" style="margin-top: 10px; display: none;"></div>
-
+    <div id="ticketList" class="ticket-list" style="display: none;"></div>
+    <div id="selectedTicket" style="margin-top: 10px; display: none; padding: 10px; background: #e6f4ff; border-radius: 4px;">
+      <strong>Ausgewähltes Ticket:</strong> <span id="selectedTicketInfo"></span>
+    </div>
   </div>
+
   <script>
     let emailData = {};
     let debugMode = false;
     let officeReady = false;
     let initTimeout;
+    let searchTimeout;
 
-    // Status-Updates
-    function updateStatus(message) {
+    // Enhanced status updates with spinner control
+    function updateStatus(message, showSpinner = false) {
       const statusDiv = document.getElementById('status');
-      statusDiv.innerText = message;
+      const spinner = showSpinner ? '<div class="spinner"></div>' : '';
+      statusDiv.innerHTML = spinner + message;
       debugLog('Status: ' + message);
+    }
+
+    function validateTicket() {
+      const ticketInput = document.getElementById('ticket');
+      const validation = document.getElementById('ticketValidation');
+      const value = ticketInput.value;
+      
+      if (value === '') {
+        validation.textContent = '';
+        validation.className = 'input-validation';
+      } else if (/^[0-9]{16}$/.test(value)) {
+        validation.textContent = '✓ Gültige Ticket-Nummer';
+        validation.className = 'input-validation valid';
+      } else if (/^[0-9]{1,16}$/.test(value)) {
+        validation.textContent = `Noch ${16 - value.length} Ziffer(n) benötigt`;
+        validation.className = 'input-validation invalid';
+      } else {
+        validation.textContent = '✗ Nur 16 Ziffern erlaubt';
+        validation.className = 'input-validation invalid';
+      }
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      const query = document.getElementById('searchInput').value.trim();
+      
+      if (query.length >= 2) {
+        searchTimeout = setTimeout(() => fetchTickets(query), 300);
+      } else if (query.length === 0) {
+        document.getElementById('ticketList').style.display = 'none';
+        document.getElementById('selectedTicket').style.display = 'none';
+      }
     }
 
     function toggleDebug() {
@@ -84,20 +327,29 @@
     function debugLog(message) {
       if (debugMode) {
         const debugOutput = document.getElementById('debugOutput');
-        debugOutput.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+        const timestamp = new Date().toLocaleTimeString();
+        debugOutput.innerHTML += `<div><strong>${timestamp}:</strong> ${message}</div>`;
         debugOutput.scrollTop = debugOutput.scrollHeight;
       }
       console.log('OToTicket: ' + message);
     }
 
-    function notify(type, text) {
+    function notify(type, text, autoHide = false) {
       const div = document.createElement('div');
       div.className = type;
-      div.innerText = text;
+      div.innerHTML = text;
       const nm = document.getElementById('notifications');
       nm.innerHTML = '';
       nm.appendChild(div);
       debugLog(`Notification (${type}): ${text}`);
+      
+      if (autoHide) {
+        setTimeout(() => {
+          if (div.parentNode) {
+            div.parentNode.removeChild(div);
+          }
+        }, 5000);
+      }
     }
 
     function escapeXml(str) {
@@ -109,21 +361,19 @@
         .replace(/'/g, '&apos;');
     }
 
-    // Initialisierung mit mehreren Fallbacks
+    // Enhanced initialization with better error handling
     function initializeAddin() {
       debugLog('Initializing addin...');
-      updateStatus('Initialisiere Add-in...');
+      updateStatus('Initialisiere Add-in...', true);
 
-      // Timeout für Office.js
       initTimeout = setTimeout(function() {
         if (!officeReady) {
           debugLog('Office.js timeout - trying fallback initialization');
-          updateStatus('Office.js Timeout - versuche Fallback...');
+          updateStatus('Office.js Timeout - versuche Fallback...', true);
           fallbackInitialization();
         }
       }, 10000);
 
-      // Prüfen ob Office bereits verfügbar ist
       if (typeof Office !== 'undefined') {
         debugLog('Office object found, calling Office.onReady');
         Office.onReady(function(info) {
@@ -131,7 +381,6 @@
         });
       } else {
         debugLog('Office object not found, waiting...');
-        // Warten und nochmal versuchen
         setTimeout(function() {
           if (typeof Office !== 'undefined') {
             Office.onReady(function(info) {
@@ -152,38 +401,32 @@
       debugLog('Host: ' + (info ? info.host : 'unknown'));
       debugLog('Platform: ' + (info ? info.platform : 'unknown'));
       
-      updateStatus('Office.js geladen - lade E-Mail Daten...');
+      updateStatus('Office.js geladen - lade E-Mail Daten...', true);
 
-      // Prüfen ob wir im richtigen Kontext sind
       if (!Office.context || !Office.context.mailbox) {
         debugLog('No mailbox context available');
-        updateStatus('Fehler: Kein Mailbox-Kontext verfügbar');
+        updateStatus('❌ Fehler: Kein Mailbox-Kontext verfügbar');
         notify('error', 'Add-in nicht im korrekten E-Mail-Kontext gestartet');
         return;
       }
 
-      // Buttons aktivieren
       document.getElementById('copyBtn').disabled = false;
-      
-      // E-Mail Daten und Ordner laden
       loadEmailData();
       loadFolders();
     }
 
     function fallbackInitialization() {
       debugLog('Fallback initialization');
-      updateStatus('Fallback-Initialisierung...');
+      updateStatus('Fallback-Initialisierung...', true);
       
-      // Prüfen ob Office-Objekte verfügbar sind
       if (typeof Office === 'undefined' || 
           !Office.context || 
           !Office.context.mailbox) {
-        updateStatus('Fehler: Office.js nicht verfügbar');
+        updateStatus('❌ Fehler: Office.js nicht verfügbar');
         notify('error', 'Office.js konnte nicht geladen werden. Bitte Add-in neu starten.');
         return;
       }
 
-      // Manuell initialisieren
       officeReady = true;
       document.getElementById('copyBtn').disabled = false;
       loadEmailData();
@@ -197,17 +440,18 @@
         const item = Office.context.mailbox.item;
         if (!item) {
           debugLog('No mail item available');
-          updateStatus('Fehler: Keine E-Mail ausgewählt');
+          updateStatus('❌ Fehler: Keine E-Mail ausgewählt');
           return;
         }
 
         emailData.subject = item.subject || '';
         emailData.body = '';
         emailData.to = item.to || [];
+        emailData.sender = item.sender || {};
         
         debugLog('Email subject: ' + emailData.subject);
+        debugLog('Email sender: ' + emailData.sender.emailAddress);
 
-        // Body asynchron laden
         item.body.getAsync('html', function(res) {
           if (res.status === Office.AsyncResultStatus.Succeeded) {
             emailData.body = res.value;
@@ -217,11 +461,11 @@
           }
         });
 
-        updateStatus('E-Mail Daten geladen - lade Ordner...');
+        updateStatus('📧 E-Mail Daten geladen - lade Ordner...', true);
         
       } catch (error) {
         debugLog('Error in loadEmailData: ' + error.message);
-        updateStatus('Fehler beim Laden der E-Mail Daten');
+        updateStatus('❌ Fehler beim Laden der E-Mail Daten');
         notify('error', 'Fehler beim Laden der E-Mail Daten: ' + error.message);
       }
     }
@@ -230,7 +474,6 @@
       debugLog('Starting to load folders...');
       
       try {
-        // Einfacher SOAP Request für Exchange 2016
         const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
           <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                          xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
@@ -261,17 +504,15 @@
           } else {
             const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
             debugLog('EWS request failed: ' + errorMsg);
-            updateStatus('Fehler beim Laden der Ordner');
+            updateStatus('❌ Fehler beim Laden der Ordner');
             notify('error', 'Ordner konnten nicht geladen werden: ' + errorMsg);
-            
-            // Fallback: Einige Standard-Ordner hinzufügen
             addFallbackFolders();
           }
         });
         
       } catch (error) {
         debugLog('Error in loadFolders: ' + error.message);
-        updateStatus('Fehler beim Laden der Ordner');
+        updateStatus('❌ Fehler beim Laden der Ordner');
         notify('error', 'Fehler beim Laden der Ordner: ' + error.message);
         addFallbackFolders();
       }
@@ -282,7 +523,7 @@
       
       try {
         const folderSelect = document.getElementById("folderSelect");
-        folderSelect.innerHTML = '<option value="">— bitte wählen —</option>';
+        folderSelect.innerHTML = '<option value="">📁 Bitte wählen</option>';
 
         const xmlDoc = new DOMParser().parseFromString(xmlResponse, "text/xml");
         const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
@@ -301,7 +542,6 @@
           const folderId = folderIdElem.getAttribute("Id");
           const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
 
-          // System-Ordner filtern
           if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
             continue;
           }
@@ -314,18 +554,17 @@
           addedFolders++;
         }
 
-        // Gespeicherten Ordner wiederherstellen
         const savedFolder = Office.context.roamingSettings.get("lastSelectedFolder");
         if (savedFolder) {
           folderSelect.value = savedFolder;
         }
 
-        updateStatus(`${addedFolders} Ordner geladen - bereit`);
-        notify('success', `${addedFolders} Ordner erfolgreich geladen`);
+        updateStatus(`✅ ${addedFolders} Ordner geladen - bereit`);
+        notify('success', `${addedFolders} Ordner erfolgreich geladen`, true);
         
       } catch (error) {
         debugLog('Error processing folders: ' + error.message);
-        updateStatus('Fehler beim Verarbeiten der Ordner');
+        updateStatus('❌ Fehler beim Verarbeiten der Ordner');
         addFallbackFolders();
       }
     }
@@ -333,13 +572,12 @@
     function addFallbackFolders() {
       debugLog('Adding fallback folders...');
       const folderSelect = document.getElementById("folderSelect");
-      folderSelect.innerHTML = '<option value="">— bitte wählen —</option>';
+      folderSelect.innerHTML = '<option value="">📁 Bitte wählen</option>';
       
-      // Einige Standard-Ordner hinzufügen
       const fallbackFolders = [
-        { name: "Posteingang", id: "inbox;" },
-        { name: "Gesendete Objekte", id: "sentitems;" },
-        { name: "Entwürfe", id: "drafts;" }
+        { name: "📥 Posteingang", id: "inbox;" },
+        { name: "📤 Gesendete Objekte", id: "sentitems;" },
+        { name: "📝 Entwürfe", id: "drafts;" }
       ];
       
       fallbackFolders.forEach(folder => {
@@ -349,8 +587,8 @@
         folderSelect.appendChild(option);
       });
       
-      updateStatus('Fallback-Ordner geladen - bereit');
-      notify('info', 'Standard-Ordner geladen (Ordner-Laden fehlgeschlagen)');
+      updateStatus('⚠️ Fallback-Ordner geladen - bereit');
+      notify('warning', 'Standard-Ordner geladen (Ordner-Laden fehlgeschlagen)', true);
     }
 
     function copyEmail() {
@@ -365,22 +603,28 @@
       const folderSelect = document.getElementById('folderSelect');
       const folderValue = folderSelect.value;
 
-      if (!/^[0-9]{4}$/.test(ticket)) {
-        notify('error', 'Ticket muss 4 Ziffern haben');
+      if (!/^[0-9]{16}$/.test(ticket)) {
+        notify('error', '❌ Ticket muss genau 16 Ziffern haben');
+        document.getElementById('ticket').focus();
         return;
       }
       if (!folderValue) {
-        notify('error', 'Zielordner wählen');
+        notify('error', '❌ Bitte Zielordner auswählen');
+        folderSelect.focus();
         return;
       }
 
-      notify('info', 'E‑Mail wird kopiert…');
+      // Disable button during operation
+      const copyBtn = document.getElementById('copyBtn');
+      copyBtn.disabled = true;
+      copyBtn.textContent = '⏳ Kopiere...';
+
+      notify('info', '📋 E‑Mail wird kopiert…');
       debugLog('Starting email copy process...');
 
       try {
         const [folderId, changeKey] = folderValue.split(";");
         
-        // Für Fallback-Ordner (distinguished folder IDs)
         let targetFolder;
         if (folderId === 'inbox') {
           targetFolder = '<t:DistinguishedFolderId Id="inbox" />';
@@ -411,40 +655,44 @@
             </soap:Body>
           </soap:Envelope>`;
 
-          // 1) Email kopieren
         Office.context.mailbox.makeEwsRequestAsync(copySoap, function(result) {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            debugLog('Email copy successful');            
-            // Für einfache Implementierung - nur Erfolgsmeldung
-            notify('success', 'E-Mail wurde erfolgreich kopiert');
-            
-          // 2) Betreff anpassen
-          const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
-          const copiedItem = responseXml.getElementsByTagName('t:ItemId')[0];
-          if (copiedItem) {    
-            const newItemId = copiedItem.getAttribute('Id');
-            const newChangeKey = copiedItem.getAttribute('ChangeKey');
-            const newSubject = `[MCB#${ticket}] ${emailData.subject}`;
-            updateSubject(newItemId, newChangeKey, newSubject);
+          copyBtn.disabled = false;
+          copyBtn.textContent = '📋 E‑Mail kopieren';
 
-          }
-            // Letzten Ordner speichern
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            debugLog('Email copy successful');
+            
+            const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
+            const copiedItem = responseXml.getElementsByTagName('t:ItemId')[0];
+            
+            if (copiedItem) {    
+              const newItemId = copiedItem.getAttribute('Id');
+              const newChangeKey = copiedItem.getAttribute('ChangeKey');
+              const newSubject = `[MCB#${ticket}] ${emailData.subject}`;
+              updateSubject(newItemId, newChangeKey, newSubject);
+            } else {
+              notify('success', '✅ E-Mail wurde erfolgreich kopiert');
+            }
+            
             Office.context.roamingSettings.set("lastSelectedFolder", folderValue);
             Office.context.roamingSettings.saveAsync();
             
           } else {
             const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
-            notify('error', 'Fehler beim Kopieren: ' + errorMsg);
+            notify('error', '❌ Fehler beim Kopieren: ' + errorMsg);
             debugLog('Copy error: ' + errorMsg);
           }
         });
         
       } catch (error) {
+        copyBtn.disabled = false;
+        copyBtn.textContent = '📋 E‑Mail kopieren';
         debugLog('Error in copyEmail: ' + error.message);
-        notify('error', 'Fehler beim Kopieren: ' + error.message);
+        notify('error', '❌ Fehler beim Kopieren: ' + error.message);
       }
     }
-function updateSubject(itemId, changeKey, newSubject) {
+
+    function updateSubject(itemId, changeKey, newSubject) {
       const updateSoap = `
         <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                        xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
@@ -473,12 +721,13 @@ function updateSubject(itemId, changeKey, newSubject) {
 
       Office.context.mailbox.makeEwsRequestAsync(updateSoap, result => {
         if (result.status === Office.AsyncResultStatus.Succeeded) {
-          notify('success', 'E-Mail wurde erfolgreich kopiert und Betreff angepasst.');
+          notify('success', '✅ E-Mail wurde erfolgreich kopiert und Betreff angepasst.', true);
         } else {
-          notify('error', 'Fehler beim Aktualisieren des Betreffs: ' + result.error.message);
+          notify('error', '❌ Fehler beim Aktualisieren des Betreffs: ' + (result.error ? result.error.message : 'Unbekannt'));
         }
       });
     }
+
     function closeDialog() {
       debugLog('Close dialog called');
       
@@ -491,24 +740,103 @@ function updateSubject(itemId, changeKey, newSubject) {
         } else if (window.close) {
           window.close();
         } else {
-          // Fallback: Dialog verstecken
           document.body.style.display = 'none';
         }
       } catch (error) {
         debugLog('Error closing dialog: ' + error.message);
-        // Letzter Fallback
         if (window.close) window.close();
       }
     }
 
-    // Initialisierung starten, wenn DOM bereit ist
+    // Enhanced ticket search with better UX
+    async function fetchTickets(query = null) {
+      const button = document.getElementById("ticketSearchBtn");
+      const ticketList = document.getElementById("ticketList");
+      const selectedDiv = document.getElementById("selectedTicket");
+      const searchInput = document.getElementById("searchInput");
+
+      const searchQuery = query || searchInput.value.trim();
+      
+      
+      if (!searchQuery) {
+        notify('warning', '⚠️ Bitte Suchbegriff eingeben');
+        return;
+       }
+
+      button.disabled = true;
+      button.textContent = "🔄 Suche...";
+
+      try {          
+        //const response = await fetch(`http://localhost:8080/api/tickets/suggestions?q=${encodeURIComponent(searchQuery)}`);
+        console.log("Searching for " + emailData.sender.emailAddress); 
+        const response = await fetch(`http://localhost:8080/api/tickets/suggestions?q=${encodeURIComponent(searchQuery)}&mail=${encodeURIComponent(emailData.sender.emailAddress)}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const tickets = await response.json();
+
+        ticketList.innerHTML = "";
+        selectedDiv.style.display = "none";
+
+        if (tickets.length === 0) {
+          ticketList.innerHTML = '<div class="ticket-item" style="text-align: center; color: #6c757d;">Keine Tickets gefunden</div>';
+          ticketList.style.display = "block";
+          return;
+        }
+
+        tickets.forEach(ticket => {
+          const div = document.createElement("div");
+          div.className = "ticket-item";
+          div.innerHTML = `
+            <div style="font-weight: 600; color: #0078d4;">#${ticket.tn}</div>
+            <div style="margin: 4px 0;">${ticket.title}</div>
+            <div style="font-size: 12px; color: #6c757d;">${ticket.name}</div>
+          `;
+          div.dataset.tn = ticket.tn;
+
+          div.addEventListener("click", () => {
+            // Remove previous selection
+            document.querySelectorAll(".ticket-item").forEach(el => el.classList.remove("selected"));
+            div.classList.add("selected");
+            
+            // Update ticket input
+            document.getElementById("ticket").value = ticket.tn;
+            validateTicket();
+            
+            // Show selection info
+            document.getElementById("selectedTicketInfo").textContent = `#${ticket.tn} - ${ticket.title}`;
+            selectedDiv.style.display = "block";
+            
+            notify('success', `✅ Ticket #${ticket.tn} ausgewählt`, true);
+          });
+
+          ticketList.appendChild(div);
+        });
+
+        ticketList.style.display = "block";
+        notify('info', `🔍 ${tickets.length} Ticket(s) gefunden`, true);
+        
+      } catch (err) {
+        ticketList.innerHTML = '<div class="ticket-item" style="color: #dc3545; text-align: center;">❌ Fehler beim Laden der Tickets</div>';
+        ticketList.style.display = "block";
+        notify('error', '❌ Fehler beim Laden der Tickets: ' + err.message);
+        console.error('Ticket search error:', err);
+      } finally {
+        button.disabled = false;
+        button.textContent = "🔍 Suchen";
+      }
+    }
+
+    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initializeAddin);
     } else {
       initializeAddin();
     }
 
-    // Zusätzlicher Fallback nach Seitenladung
+    // Additional fallback after page load
     window.addEventListener('load', function() {
       if (!officeReady) {
         debugLog('Window load event - Office still not ready, trying again...');
@@ -520,59 +848,38 @@ function updateSubject(itemId, changeKey, newSubject) {
       }
     });
 
-
-    // Ticket Search
-
-        (function () {
-      Office.onReady(function () {
-        document.getElementById("ticketSearchBtn").onclick = fetchTickets;
-      });
-
-      async function fetchTickets() {
-        const button = document.getElementById("ticketSearchBtn");
-        const ticketList = document.getElementById("ticketList");
-        const selectedDiv = document.getElementById("selectedTicket");
-
-        button.disabled = true;
-        button.querySelector(".ms-Button-label").textContent = "Searching...";
-
-        try {          
-          const response = await fetch("http://localhost:8080/api/tickets/suggestions?q=test");
-          const tickets = await response.json();
-
-          ticketList.innerHTML = "";
-          selectedDiv.style.display = "none";
-
-          tickets.forEach(ticket => {
-            const li = document.createElement("li");
-            li.className = "ms-ListItem";
-            li.textContent = `${ticket.tn}: ${ticket.title} (${ticket.name})`;
-            li.dataset.tn = ticket.tn;
-
-            li.style.cursor = "pointer";
-            li.style.padding = "8px";
-            li.style.border = "1px solid #ddd";
-            li.style.borderRadius = "4px";
-            li.style.marginBottom = "6px";
-
-            li.addEventListener("click", () => {
-              document.querySelectorAll("#ticketList li").forEach(el => el.style.backgroundColor = "");
-              li.style.backgroundColor = "#e6f4ff";
-              selectedDiv.textContent = `Selected Ticket: ${ticket.tn}`;
-              selectedDiv.style.display = "block";
-            });
-
-            ticketList.appendChild(li);
-          });
-        } catch (err) {
-          ticketList.innerHTML = `<li style="color:red;">Error fetching tickets</li>`;
-          console.error(err);
-        } finally {
-          button.disabled = false;
-          button.querySelector(".ms-Button-label").textContent = "ticketSearch";
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+      // Ctrl/Cmd + Enter to copy email
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (!document.getElementById('copyBtn').disabled) {
+          copyEmail();
         }
       }
-    })();
+      
+      // Escape to close
+      if (e.key === 'Escape') {
+        closeDialog();
+      }
+      
+      // Enter in search to search
+      if (e.key === 'Enter' && e.target.id === 'searchInput') {
+        e.preventDefault();
+        fetchTickets();
+      }
+    });
+
+    // Auto-focus ticket input when ready
+    function focusTicketInput() {
+      if (officeReady) {
+        document.getElementById('ticket').focus();
+      }
+    }
+
+    // Call focus after initialization
+    setTimeout(focusTicketInput, 1000);
+
   </script>
 </body>
 </html>

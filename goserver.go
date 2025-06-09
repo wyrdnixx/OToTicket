@@ -4,6 +4,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -33,14 +34,30 @@ func suggestionsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := r.URL.Query().Get("q")
+	mail := r.URL.Query().Get("mail")
 	if len(q) < 1 {
 		http.Error(w, "Query param 'q' min 1 Zeichen", http.StatusBadRequest)
 		return
 	}
+	fmt.Println("Received query:", q)
+	fmt.Println("Received mail:", mail)
+	searchTerm := "%" + q + "%"
 
-	//like := q + "%"
+	/*
+	   rows, err := db.Query(`select tn, title, name  from ticket
+	   left join ticket_type on ticket.type_id = ticket_type.id
+	   where tn like ?
+	   or title like ?
+	   LIMIT 10`, searchTerm, searchTerm)
+	*/
 
-	rows, err := db.Query("select tn, title, name  from ticket left join ticket_type on ticket.type_id = ticket_type.id LIMIT 10")
+	rows, err := db.Query(`select tn, ticket.title, name  from ticket 
+    left join ticket_type on ticket.type_id = ticket_type.id 
+    left join customer_user on ticket.customer_user_id = customer_user.login
+    where tn like ? 
+    or ticket.title like ?
+    or email like ?
+    LIMIT 10;`, searchTerm, searchTerm, mail)
 	if err != nil {
 		http.Error(w, "DB-Fehler", http.StatusInternalServerError)
 		log.Println("DB query error:", err)
