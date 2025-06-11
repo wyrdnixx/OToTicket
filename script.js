@@ -177,7 +177,7 @@ function loadEmailData() {
     emailData.to = item.to || [];
     emailData.sender = item.sender || {};
     
-    debugLog('Email subject: ' + emailData.subject);
+    debugLog('-> 180Email subject: ' + emailData.subject);
     debugLog('Email sender: ' + emailData.sender.emailAddress);
 
     item.body.getAsync('html', function(res) {
@@ -335,7 +335,7 @@ function loadFolders() {
             </soap:Envelope>`;
           folderRequests.push({ mailbox, request });
         }); */
-
+        console.log("Zeile 338");  
         // Process each mailbox's folders
         let processedCount = 0;
         const allFolders = new Map();
@@ -554,7 +554,7 @@ function loadMailboxFolders() {
   const folderList = document.getElementById('folderList');
   folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #6c757d;">Lade Ordner...</div>';
 
-  debugLog('Loading folders for mailbox: ' + mailbox);
+  debugLog('-> 557Loading folders for mailbox: ' + mailbox);
 
   // Directly try to access the target mailbox folders
   const request = `<?xml version="1.0" encoding="utf-8"?>
@@ -613,13 +613,13 @@ function loadMailboxFolders() {
       </soap:Body>
     </soap:Envelope>`;
  */
-  debugLog('Sending FindFolder request: ' + request);
+  debugLog('-> 616 Sending FindFolder request: ' + request);
 
   Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
-    debugLog('FindFolder Response status: ' + result.status);
+    debugLog(' -> 619 FindFolder Response status: ' + result.status);
     
     if (result.status === Office.AsyncResultStatus.Succeeded) {
-      debugLog('FindFolder Response: ' + result.value);
+      debugLog('-> 622FindFolder Response: ' + result.value);
       
       try {
         const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
