@@ -219,7 +219,7 @@ function loadFolders() {
               <t:BaseShape>Default</t:BaseShape>
             </m:FolderShape>
             <m:ParentFolderIds>
-              <t:DistinguishedFolderId Id="msgfolderroot" />
+              <t:DistinguishedFolderId Id="Posteingang" />
             </m:ParentFolderIds>
           </m:FindFolder>
         </soap:Body>
@@ -284,6 +284,34 @@ function loadFolders() {
 
         otherMailboxes.forEach(mailbox => {
           const request = `<?xml version="1.0" encoding="utf-8"?>
+          <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                         xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                         xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+            <soap:Header>
+              <t:RequestServerVersion Version="Exchange2013" />
+              <t:MailboxCulture>de-DE</t:MailboxCulture>
+              <t:TimeZoneContext>
+                <t:TimeZoneDefinition Id="W. Europe Standard Time" />
+              </t:TimeZoneContext>
+            </soap:Header>
+            <soap:Body>
+              <m:FindFolder Traversal="Deep">
+                <m:FolderShape>
+                  <t:BaseShape>Default</t:BaseShape>
+                </m:FolderShape>
+                <m:ParentFolderIds>
+                  <t:DistinguishedFolderId Id="inbox">
+                    <t:Mailbox>
+                      <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
+                      <t:RoutingType>SMTP</t:RoutingType>
+                    </t:Mailbox>
+                  </t:DistinguishedFolderId>
+                </m:ParentFolderIds>
+              </m:FindFolder>
+            </soap:Body>
+          </soap:Envelope>`;
+
+          /* const request = `<?xml version="1.0" encoding="utf-8"?>
             <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                            xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                            xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -296,7 +324,7 @@ function loadFolders() {
                     <t:BaseShape>Default</t:BaseShape>
                   </m:FolderShape>
                   <m:ParentFolderIds>
-                    <t:DistinguishedFolderId Id="msgfolderroot">
+                    <t:DistinguishedFolderId Id="Posteingang">
                       <t:Mailbox>
                         <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
                       </t:Mailbox>
@@ -306,7 +334,7 @@ function loadFolders() {
               </soap:Body>
             </soap:Envelope>`;
           folderRequests.push({ mailbox, request });
-        });
+        }); */
 
         // Process each mailbox's folders
         let processedCount = 0;
@@ -386,7 +414,7 @@ function loadCurrentMailboxFolders() {
             <t:BaseShape>Default</t:BaseShape>
           </m:FolderShape>
           <m:ParentFolderIds>
-            <t:DistinguishedFolderId Id="msgfolderroot" />
+            <t:DistinguishedFolderId Id="Posteingang" />
           </m:ParentFolderIds>
         </m:FindFolder>
       </soap:Body>
@@ -530,6 +558,34 @@ function loadMailboxFolders() {
 
   // Directly try to access the target mailbox folders
   const request = `<?xml version="1.0" encoding="utf-8"?>
+  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                 xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                 xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+    <soap:Header>
+      <t:RequestServerVersion Version="Exchange2013" />
+      <t:MailboxCulture>de-DE</t:MailboxCulture>
+      <t:TimeZoneContext>
+        <t:TimeZoneDefinition Id="W. Europe Standard Time" />
+      </t:TimeZoneContext>
+    </soap:Header>
+    <soap:Body>
+      <m:FindFolder Traversal="Deep">
+        <m:FolderShape>
+          <t:BaseShape>Default</t:BaseShape>
+        </m:FolderShape>
+        <m:ParentFolderIds>
+          <t:DistinguishedFolderId Id="inbox">
+            <t:Mailbox>
+              <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
+              <t:RoutingType>SMTP</t:RoutingType>
+            </t:Mailbox>
+          </t:DistinguishedFolderId>
+        </m:ParentFolderIds>
+      </m:FindFolder>
+    </soap:Body>
+  </soap:Envelope>`;
+  /* 
+  const request = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                    xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -556,7 +612,7 @@ function loadMailboxFolders() {
         </m:FindFolder>
       </soap:Body>
     </soap:Envelope>`;
-
+ */
   debugLog('Sending FindFolder request: ' + request);
 
   Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
