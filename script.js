@@ -177,7 +177,7 @@ function loadEmailData() {
     emailData.to = item.to || [];
     emailData.sender = item.sender || {};
     
-    debugLog('-> 180Email subject: ' + emailData.subject);
+    debugLog('Email subject: ' + emailData.subject);
     debugLog('Email sender: ' + emailData.sender.emailAddress);
 
     item.body.getAsync('html', function(res) {
@@ -219,7 +219,7 @@ function loadFolders() {
               <t:BaseShape>Default</t:BaseShape>
             </m:FolderShape>
             <m:ParentFolderIds>
-              <t:DistinguishedFolderId Id="Posteingang" />
+              <t:DistinguishedFolderId Id="msgfolderroot" />
             </m:ParentFolderIds>
           </m:FindFolder>
         </soap:Body>
@@ -284,34 +284,6 @@ function loadFolders() {
 
         otherMailboxes.forEach(mailbox => {
           const request = `<?xml version="1.0" encoding="utf-8"?>
-          <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                         xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                         xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-            <soap:Header>
-              <t:RequestServerVersion Version="Exchange2013" />
-              <t:MailboxCulture>de-DE</t:MailboxCulture>
-              <t:TimeZoneContext>
-                <t:TimeZoneDefinition Id="W. Europe Standard Time" />
-              </t:TimeZoneContext>
-            </soap:Header>
-            <soap:Body>
-              <m:FindFolder Traversal="Deep">
-                <m:FolderShape>
-                  <t:BaseShape>Default</t:BaseShape>
-                </m:FolderShape>
-                <m:ParentFolderIds>
-                  <t:DistinguishedFolderId Id="inbox">
-                    <t:Mailbox>
-                      <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
-                      <t:RoutingType>SMTP</t:RoutingType>
-                    </t:Mailbox>
-                  </t:DistinguishedFolderId>
-                </m:ParentFolderIds>
-              </m:FindFolder>
-            </soap:Body>
-          </soap:Envelope>`;
-
-          /* const request = `<?xml version="1.0" encoding="utf-8"?>
             <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                            xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                            xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -324,7 +296,7 @@ function loadFolders() {
                     <t:BaseShape>Default</t:BaseShape>
                   </m:FolderShape>
                   <m:ParentFolderIds>
-                    <t:DistinguishedFolderId Id="Posteingang">
+                    <t:DistinguishedFolderId Id="msgfolderroot">
                       <t:Mailbox>
                         <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
                       </t:Mailbox>
@@ -334,8 +306,8 @@ function loadFolders() {
               </soap:Body>
             </soap:Envelope>`;
           folderRequests.push({ mailbox, request });
-        }); */
-        console.log("Zeile 338");  
+        });
+
         // Process each mailbox's folders
         let processedCount = 0;
         const allFolders = new Map();
@@ -414,7 +386,7 @@ function loadCurrentMailboxFolders() {
             <t:BaseShape>Default</t:BaseShape>
           </m:FolderShape>
           <m:ParentFolderIds>
-            <t:DistinguishedFolderId Id="Posteingang" />
+            <t:DistinguishedFolderId Id="msgfolderroot" />
           </m:ParentFolderIds>
         </m:FindFolder>
       </soap:Body>
@@ -554,37 +526,9 @@ function loadMailboxFolders() {
   const folderList = document.getElementById('folderList');
   folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #6c757d;">Lade Ordner...</div>';
 
-  debugLog('-> 557Loading folders for mailbox: ' + mailbox);
+  debugLog('Loading folders for mailbox: ' + mailbox);
 
   // Directly try to access the target mailbox folders
-  const request = `<?xml version="1.0" encoding="utf-8"?>
-  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                 xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                 xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-    <soap:Header>
-      <t:RequestServerVersion Version="Exchange2013" />
-      <t:MailboxCulture>de-DE</t:MailboxCulture>
-      <t:TimeZoneContext>
-        <t:TimeZoneDefinition Id="W. Europe Standard Time" />
-      </t:TimeZoneContext>
-    </soap:Header>
-    <soap:Body>
-      <m:FindFolder Traversal="Deep">
-        <m:FolderShape>
-          <t:BaseShape>Default</t:BaseShape>
-        </m:FolderShape>
-        <m:ParentFolderIds>
-          <t:DistinguishedFolderId Id="inbox">
-            <t:Mailbox>
-              <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
-              <t:RoutingType>SMTP</t:RoutingType>
-            </t:Mailbox>
-          </t:DistinguishedFolderId>
-        </m:ParentFolderIds>
-      </m:FindFolder>
-    </soap:Body>
-  </soap:Envelope>`;
-  /* 
   const request = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
@@ -612,14 +556,14 @@ function loadMailboxFolders() {
         </m:FindFolder>
       </soap:Body>
     </soap:Envelope>`;
- */
-  debugLog('-> 616 Sending FindFolder request: ' + request);
+
+  debugLog('Sending FindFolder request: ' + request);
 
   Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
-    debugLog(' -> 619 FindFolder Response status: ' + result.status);
+    debugLog('FindFolder Response status: ' + result.status);
     
     if (result.status === Office.AsyncResultStatus.Succeeded) {
-      debugLog('-> 622FindFolder Response: ' + result.value);
+      debugLog('FindFolder Response: ' + result.value);
       
       try {
         const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
