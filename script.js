@@ -270,7 +270,7 @@ function loadFolders() {
         // Add some common mailboxes that might be accessible
         const commonMailboxes = [
           'otrs@ulewu.de',  // Replace with actual common mailboxes
-          'helpdesk@example.com'
+          'ulewu@example.com'
         ];
         
         otherMailboxes.push(...commonMailboxes);
@@ -756,26 +756,19 @@ function copyEmail() {
   }
 }
 
-function updateSubject(itemId, changeKey, newSubject, mailbox) {
-  const updateSoap = `<?xml version="1.0" encoding="utf-8"?>
+function updateSubject(itemId, changeKey, newSubject) {
+  const updateSoap = `
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                    xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
       <soap:Header>
         <t:RequestServerVersion Version="Exchange2013" />
-        ${mailbox ? `
-        <t:ExchangeImpersonation>
-          <t:ConnectingSID>
-            <t:PrimarySmtpAddress>${escapeXml(mailbox)}</t:PrimarySmtpAddress>
-          </t:ConnectingSID>
-        </t:ExchangeImpersonation>
-        ` : ''}
       </soap:Header>
       <soap:Body>
-        <m:UpdateItem>
+        <m:UpdateItem MessageDisposition="SaveOnly" ConflictResolution="AutoResolve">
           <m:ItemChanges>
             <t:ItemChange>
-              <t:ItemId Id="${escapeXml(itemId)}" ChangeKey="${escapeXml(changeKey)}" />
+              <t:ItemId Id="${escapeXml(itemId)}" ChangeKey="${escapeXml(changeKey)}"/>
               <t:Updates>
                 <t:SetItemField>
                   <t:FieldURI FieldURI="item:Subject" />
