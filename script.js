@@ -5,6 +5,23 @@ let initTimeout;
 let searchTimeout;
 let selectedFolder = null;
 
+// Target folder configuration
+const TARGET_FOLDER_CONFIG = {
+  mailbox: "jojo@ulewu.de", // E-Mail-Adresse des Zielpostfachs
+  folderId: "AAMkADA3YmY0ZmY4LWJkMmMtNGMzZi1iZTJhLWI5NDRkNDVjMzMxNwAuAAAAAADnhTqEDCWlQqgSFCKBQnUUAQBjqVUJLaU+RJUA55He6pa2AAAAkE80AAA=", // ID des Zielordners
+  changeKey: "AQAAABYAAADyLxnmgs5iRK2L2NHC4VQYAANnYp/x" // ChangeKey des Zielordners
+};
+
+/*
+jojo@ulewu.de / test_OTRS
+ID: AAMkADA3YmY0ZmY4LWJkMmMtNGMzZi1iZTJhLWI5NDRkNDVjMzMxNwAuAAAAAADnhTqEDCWlQqgSFCKBQnUUAQBjqVUJLaU+RJUA55He6pa2AAAAkE80AAA=
+ChangeKey: AQAAABYAAADyLxnmgs5iRK2L2NHC4VQYAANnYp/x
+Parent ID: root
+*/
+
+
+
+
 // Enhanced status updates with spinner control
 function updateStatus(message, showSpinner = false) {
   const statusDiv = document.getElementById('status');
@@ -140,7 +157,6 @@ function handleOfficeReady(info) {
 
   document.getElementById('copyBtn').disabled = false;
   loadEmailData();
-  loadFolders();
 }
 
 function fallbackInitialization() {
@@ -158,7 +174,6 @@ function fallbackInitialization() {
   officeReady = true;
   document.getElementById('copyBtn').disabled = false;
   loadEmailData();
-  loadFolders();
 }
 
 function loadEmailData() {
@@ -189,286 +204,13 @@ function loadEmailData() {
       }
     });
 
-    updateStatus('📧 E-Mail Daten geladen - lade Ordner...', true);
+    updateStatus('📧 E-Mail Daten geladen - bereit', true);
     
   } catch (error) {
     debugLog('Error in loadEmailData: ' + error.message);
     updateStatus('❌ Fehler beim Laden der E-Mail Daten');
     notify('error', 'Fehler beim Laden der E-Mail Daten: ' + error.message);
   }
-}
-
-function loadFolders() {
-  debugLog('Starting to load folders...');
-  
-  try {
-    const currentMailbox = Office.context.mailbox.userProfile.emailAddress;
-    debugLog('Current mailbox: ' + currentMailbox);
-
-    const request = `<?xml version="1.0" encoding="utf-8"?>
-      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                     xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                     xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-        <soap:Header>
-          <t:RequestServerVersion Version="Exchange2013" />
-        </soap:Header>
-        <soap:Body>
-          <m:FindFolder Traversal="Deep">
-            <m:FolderShape>
-              <t:BaseShape>Default</t:BaseShape>
-            </m:FolderShape>
-            <m:ParentFolderIds>
-              <t:DistinguishedFolderId Id="msgfolderroot" />
-            </m:ParentFolderIds>
-          </m:FindFolder>
-        </soap:Body>
-      </soap:Envelope>`;
-
-    Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
-      if (result.status === Office.AsyncResultStatus.Succeeded) {
-        const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
-        const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
-        
-        debugLog('Found ' + folders.length + ' folders');
-        
-        const folderSelect = document.getElementById("folderSelect");
-        folderSelect.innerHTML = '<option value="">📁 Bitte wählen</option>';
-        
-        let totalFolders = 0;
-
-        for (let i = 0; i < folders.length; i++) {
-          const folder = folders[i];
-          const displayNameElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "DisplayName")[0];
-          const folderIdElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "FolderId")[0];
-
-          if (!displayNameElem || !folderIdElem) continue;
-
-          const displayName = displayNameElem.textContent;
-          const folderId = folderIdElem.getAttribute("Id");
-          const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
-
-          if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
-            continue;
-          }
-
-          const option = document.createElement("option");
-          option.value = folderId + ";" + changeKey;
-          option.textContent = displayName;
-          folderSelect.appendChild(option);
-          totalFolders++;
-        }
-
-        const savedFolder = Office.context.roamingSettings.get("lastSelectedFolder");
-        if (savedFolder) {
-          folderSelect.value = savedFolder;
-        }
-
-        updateStatus(`✅ ${totalFolders} Ordner geladen - bereit`);
-        notify('success', `${totalFolders} Ordner erfolgreich geladen`, true);
-      } else {
-        addFallbackFolders();
-      }
-    });
-    
-  } catch (error) {
-    debugLog('Error in loadFolders: ' + error.message);
-    updateStatus('❌ Fehler beim Laden der Ordner');
-    notify('error', 'Fehler beim Laden der Ordner: ' + error.message);
-    addFallbackFolders();
-  }
-}
-
-function addFallbackFolders() {
-  debugLog('Adding fallback folders...');
-  const folderSelect = document.getElementById("folderSelect");
-  folderSelect.innerHTML = '<option value="">📁 Bitte wählen</option>';
-  
-  const fallbackFolders = [
-    { name: "📥 Posteingang", id: "inbox;" },
-    { name: "📤 Gesendete Objekte", id: "sentitems;" },
-    { name: "📝 Entwürfe", id: "drafts;" }
-  ];
-  
-  fallbackFolders.forEach(folder => {
-    const option = document.createElement("option");
-    option.value = folder.id;
-    option.textContent = folder.name;
-    folderSelect.appendChild(option);
-  });
-  
-  updateStatus('⚠️ Fallback-Ordner geladen - bereit');
-  notify('warning', 'Standard-Ordner geladen (Ordner-Laden fehlgeschlagen)', true);
-}
-
-function showFolderDialog() {
-  document.getElementById('folderDialog').style.display = 'flex';
-  document.getElementById('mailboxInput').focus();
-}
-
-function hideFolderDialog() {
-  document.getElementById('folderDialog').style.display = 'none';
-}
-
-function clearFolderSelection() {
-  selectedFolder = null;
-  document.getElementById('selectedFolderName').textContent = 'Kein Ordner ausgewählt';
-  document.getElementById('copyBtn').disabled = true;
-}
-
-function loadMailboxFolders() {
-  const mailboxInput = document.getElementById('mailboxInput');
-  const mailbox = mailboxInput.value.trim();
-  
-  if (!mailbox) {
-    notify('error', '❌ Bitte Mailbox-Adresse eingeben');
-    return;
-  }
-
-  const folderList = document.getElementById('folderList');
-  folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #6c757d;">Lade Ordner...</div>';
-
-  debugLog('Loading folders for mailbox: ' + mailbox);
-
-  // Directly try to access the target mailbox folders
-  /* const request = `<?xml version="1.0" encoding="utf-8"?>
-    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                   xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                   xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-      <soap:Header>
-        <t:RequestServerVersion Version="Exchange2013" />
-        <t:MailboxCulture>de-DE</t:MailboxCulture>
-        <t:TimeZoneContext>
-          <t:TimeZoneDefinition Id="W. Europe Standard Time" />
-        </t:TimeZoneContext>
-      </soap:Header>
-      <soap:Body>
-        <m:FindFolder Traversal="Deep">
-          <m:FolderShape>
-            <t:BaseShape>Default</t:BaseShape>
-          </m:FolderShape>
-          <m:ParentFolderIds>
-            <t:DistinguishedFolderId Id="Posteingang">
-              <t:Mailbox>
-                <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
-                <t:RoutingType>SMTP</t:RoutingType>
-              </t:Mailbox>
-            </t:DistinguishedFolderId>
-          </m:ParentFolderIds>
-        </m:FindFolder>
-      </soap:Body>
-    </soap:Envelope>`; */
-
-  const request = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-  xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
-  <soap:Body>
-    <FindFolder Traversal="Deep" xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
-      <FolderShape>
-        <t:BaseShape>Default</t:BaseShape>
-      </FolderShape>
-      <ParentFolderIds>
-        <t:DistinguishedFolderId Id="msgfolderroot"/>
-          <t:Mailbox>
-                <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
-                <t:RoutingType>SMTP</t:RoutingType>
-              </t:Mailbox>
-      </ParentFolderIds>
-    </FindFolder>
-  </soap:Body>
-</soap:Envelope>`;
-
-  debugLog('Sending FindFolder request: ' + request);
-
-  Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
-    debugLog('FindFolder Response status: ' + result.status);
-    
-    if (result.status === Office.AsyncResultStatus.Succeeded) {
-      debugLog('FindFolder Response: ' + result.value);
-      
-      try {
-        const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
-        
-        // Check for SOAP fault
-        const fault = xmlDoc.getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "Fault");
-        if (fault.length > 0) {
-          const faultString = fault[0].getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "faultstring")[0];
-          const errorMsg = faultString ? faultString.textContent : 'Unknown SOAP fault';
-          debugLog('SOAP Fault: ' + errorMsg);
-          folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #dc3545;">❌ Fehler: ' + errorMsg + '</div>';
-          notify('error', '❌ Fehler beim Laden der Ordner: ' + errorMsg);
-          return;
-        }
-
-        const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
-        debugLog('Found ' + folders.length + ' folders');
-        
-        folderList.innerHTML = '';
-        
-        if (folders.length === 0) {
-          folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #6c757d;">Keine Ordner gefunden</div>';
-          return;
-        }
-
-        for (let i = 0; i < folders.length; i++) {
-          const folder = folders[i];
-          const displayNameElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "DisplayName")[0];
-          const folderIdElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "FolderId")[0];
-
-          if (!displayNameElem || !folderIdElem) {
-            debugLog('Skipping folder - missing displayName or folderId');
-            continue;
-          }
-
-          const displayName = displayNameElem.textContent;
-          const folderId = folderIdElem.getAttribute("Id");
-          const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
-
-          debugLog('Processing folder: ' + displayName + ' (ID: ' + folderId + ')');
-
-          if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
-            debugLog('Skipping system folder: ' + displayName);
-            continue;
-          }
-
-          const div = document.createElement("div");
-          div.className = "folder-item";
-          div.textContent = displayName;
-          div.onclick = function() {
-            // Remove previous selection
-            document.querySelectorAll(".folder-item").forEach(el => el.classList.remove("selected"));
-            div.classList.add("selected");
-            
-            // Store selected folder
-            selectedFolder = {
-              displayName,
-              value: folderId + ";" + changeKey + ";" + mailbox,
-              mailbox
-            };
-            
-            // Update UI
-            document.getElementById('selectedFolderName').textContent = `${displayName} (${mailbox})`;
-            document.getElementById('copyBtn').disabled = false;
-            
-            // Close dialog
-            hideFolderDialog();
-            
-            notify('success', `✅ Ordner "${displayName}" ausgewählt`, true);
-          };
-
-          folderList.appendChild(div);
-        }
-      } catch (error) {
-        debugLog('Error parsing XML response: ' + error.message);
-        folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #dc3545;">❌ Fehler beim Verarbeiten der Antwort</div>';
-        notify('error', '❌ Fehler beim Verarbeiten der Antwort: ' + error.message);
-      }
-    } else {
-      const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
-      debugLog('FindFolder Request failed: ' + errorMsg);
-      folderList.innerHTML = '<div class="folder-item" style="text-align: center; color: #dc3545;">❌ Fehler beim Laden der Ordner</div>';
-      notify('error', '❌ Fehler beim Laden der Ordner: ' + errorMsg);
-    }
-  });
 }
 
 function getItemDetails(itemId) {
@@ -530,7 +272,7 @@ function getItemDetails(itemId) {
   });
 }
 
-// Modify the copyEmail function to use GetItem
+// Modify the copyEmail function to use the target folder configuration
 async function copyEmail() {
   debugLog('Copy email function called');
   
@@ -544,12 +286,6 @@ async function copyEmail() {
   if (!/^[0-9]{16}$/.test(ticket)) {
     notify('error', '❌ Ticket muss genau 16 Ziffern haben');
     document.getElementById('ticket').focus();
-    return;
-  }
-
-  const folderSelect = document.getElementById('folderSelect');
-  if (!folderSelect.value) {
-    notify('error', '❌ Bitte Zielordner auswählen');
     return;
   }
 
@@ -570,19 +306,12 @@ async function copyEmail() {
   debugLog('Source item ID: ' + item.itemId);
 
   try {
-    const [folderId, changeKey] = folderSelect.value.split(";");
-    debugLog('Target folder: ' + folderId);
-    
-    let targetFolder;
-    if (folderId === 'inbox') {
-      targetFolder = '<t:DistinguishedFolderId Id="inbox" />';
-    } else if (folderId === 'sentitems') {
-      targetFolder = '<t:DistinguishedFolderId Id="sentitems" />';
-    } else if (folderId === 'drafts') {
-      targetFolder = '<t:DistinguishedFolderId Id="drafts" />';
-    } else {
-      targetFolder = `<t:FolderId Id="${escapeXml(folderId)}" ChangeKey="${escapeXml(changeKey)}"/>`;
-    }
+    const targetFolder = `<t:FolderId Id="${escapeXml(TARGET_FOLDER_CONFIG.folderId)}" ChangeKey="${escapeXml(TARGET_FOLDER_CONFIG.changeKey)}">
+      <t:Mailbox>
+        <t:EmailAddress>${escapeXml(TARGET_FOLDER_CONFIG.mailbox)}</t:EmailAddress>
+        <t:RoutingType>SMTP</t:RoutingType>
+      </t:Mailbox>
+    </t:FolderId>`;
 
     const copySoap = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
@@ -835,3 +564,131 @@ function focusTicketInput() {
 
 // Call focus after initialization
 setTimeout(focusTicketInput, 1000);
+
+function openConfigDialog() {
+  const modal = document.getElementById('configModal');
+  modal.style.display = 'block';
+  document.getElementById('configEmail').value = TARGET_FOLDER_CONFIG.mailbox;
+}
+
+function closeConfigDialog() {
+  const modal = document.getElementById('configModal');
+  modal.style.display = 'none';
+}
+
+function fetchFolderInfo() {
+  const email = document.getElementById('configEmail').value.trim();
+  if (!email) {
+    notify('error', '❌ Bitte E-Mail-Adresse eingeben');
+    return;
+  }
+
+  const folderList = document.getElementById('folderList');
+  folderList.innerHTML = '<div class="loading">Lade Ordnerinformationen...</div>';
+  debugLog('Starte Ordnerabfrage für: ' + email);
+
+  const findFolderSoap =  `<?xml version="1.0" encoding="utf-8"?>
+  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                 xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                 xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+    <soap:Header>
+      <t:RequestServerVersion Version="Exchange2013" />
+      <t:MailboxCulture>de-DE</t:MailboxCulture>
+      <t:TimeZoneContext>
+        <t:TimeZoneDefinition Id="W. Europe Standard Time" />
+      </t:TimeZoneContext>
+    </soap:Header>
+    <soap:Body>
+      <m:FindFolder Traversal="Deep">
+        <m:FolderShape>
+          <t:BaseShape>Default</t:BaseShape>
+        </m:FolderShape>
+        <m:ParentFolderIds>
+          <t:DistinguishedFolderId Id="msgfolderroot">
+            <t:Mailbox>
+              <t:EmailAddress>${escapeXml(email)}</t:EmailAddress>
+              <t:RoutingType>SMTP</t:RoutingType>
+            </t:Mailbox>
+          </t:DistinguishedFolderId>
+        </m:ParentFolderIds>
+      </m:FindFolder>
+    </soap:Body>
+  </soap:Envelope>`;
+
+  debugLog('SOAP Request: ' + findFolderSoap);
+
+  Office.context.mailbox.makeEwsRequestAsync(findFolderSoap, function(result) {
+    debugLog('EWS Response Status: ' + result.status);
+    
+    if (result.status === Office.AsyncResultStatus.Succeeded) {
+      debugLog('EWS Response: ' + result.value);
+      
+      const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
+      
+      // Check for SOAP fault
+      const fault = responseXml.getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "Fault");
+      if (fault.length > 0) {
+        const faultString = fault[0].getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "faultstring")[0];
+        const errorMsg = faultString ? faultString.textContent : 'Unknown SOAP fault';
+        debugLog('SOAP Fault: ' + errorMsg);
+        folderList.innerHTML = `<div class="error">❌ SOAP Fehler: ${errorMsg}</div>`;
+        notify('error', '❌ SOAP Fehler: ' + errorMsg);
+        return;
+      }
+
+      const folders = responseXml.getElementsByTagName('t:Folder');
+      debugLog('Gefundene Ordner: ' + folders.length);
+      
+      let html = '<div class="folder-list">';
+      for (let folder of folders) {
+        const folderId = folder.getElementsByTagName('t:FolderId')[0];
+        const displayName = folder.getElementsByTagName('t:DisplayName')[0];
+        const parentFolderId = folder.getElementsByTagName('t:ParentFolderId')[0];
+        
+        if (folderId && displayName) {
+          const id = folderId.getAttribute('Id');
+          const changeKey = folderId.getAttribute('ChangeKey');
+          const name = displayName.textContent;
+          const parentId = parentFolderId ? parentFolderId.getAttribute('Id') : 'root';
+          
+          debugLog(`Ordner gefunden: ${name} (ID: ${id}, ChangeKey: ${changeKey}, Parent: ${parentId})`);
+          
+          html += `
+            <div class="folder-item">
+              <div class="folder-name">📁 ${name}</div>
+              <div class="folder-details">
+                <div><strong>ID:</strong> <code>${id}</code></div>
+                <div><strong>ChangeKey:</strong> <code>${changeKey}</code></div>
+                <div><strong>Parent ID:</strong> <code>${parentId}</code></div>
+              </div>
+            </div>
+          `;
+        } else {
+          debugLog('Ordner ohne ID oder DisplayName gefunden: ' + folder.outerHTML);
+        }
+      }
+      html += '</div>';
+      
+      if (folders.length === 0) {
+        html = '<div class="error">Keine Ordner gefunden</div>';
+        debugLog('Keine Ordner in der Antwort gefunden');
+      }
+      
+      folderList.innerHTML = html;
+    } else {
+      const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
+      debugLog('EWS Fehler: ' + errorMsg);
+      debugLog('Fehler Details: ' + JSON.stringify(result.error));
+      folderList.innerHTML = `<div class="error">❌ Fehler beim Abrufen der Ordner: ${errorMsg}</div>`;
+      notify('error', '❌ Fehler beim Abrufen der Ordner: ' + errorMsg);
+    }
+  });
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  const modal = document.getElementById('configModal');
+  if (event.target === modal) {
+    closeConfigDialog();
+  }
+}

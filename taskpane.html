@@ -8,7 +8,12 @@
 </head>
 <body>
   <div class="container">
-    <h2>📧 Mail2Ticket EWS</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h2>📧 Mail2Ticket EWS</h2>
+      <button class="btn btn-secondary" onclick="openConfigDialog()" id="configBtn">
+        ⚙️ Konfiguration
+      </button>
+    </div>
     <div id="status" class="status">
       <div class="spinner"></div>
       Lade Office.js...
@@ -30,13 +35,6 @@
         />
         <div id="ticketValidation" class="input-validation"></div>
       </div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">📁 Zielordner</label>
-      <select id="folderSelect" class="form-input">
-        <option value="">📁 Bitte wählen</option>
-      </select>
     </div>
 
     <div style="margin-bottom: 16px;">
@@ -73,6 +71,34 @@
     <div id="ticketList" class="ticket-list" style="display: none;"></div>
     <div id="selectedTicket" style="margin-top: 10px; display: none; padding: 10px; background: #e6f4ff; border-radius: 4px;">
       <strong>Ausgewähltes Ticket:</strong> <span id="selectedTicketInfo"></span>
+    </div>
+  </div>
+
+  <!-- Config Modal -->
+  <div id="configModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⚙️ Konfiguration</h3>
+        <span class="close" onclick="closeConfigDialog()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">📧 E-Mail-Adresse des Zielpostfachs</label>
+          <div class="input-group">
+            <input 
+              type="email" 
+              id="configEmail" 
+              class="form-input" 
+              placeholder="jojo@ulewu.de"
+              
+            />
+            <button class="btn btn-primary" onclick="fetchFolderInfo()">
+              🔍 Ordner abrufen
+            </button>
+          </div>
+        </div>
+        <div id="folderList" class="folder-list" style="margin-top: 16px;"></div>
+      </div>
     </div>
   </div>
 
