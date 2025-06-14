@@ -34,15 +34,9 @@
 
     <div class="form-group">
       <label class="form-label">📁 Zielordner</label>
-      <div class="folder-selection">
-        <div id="selectedFolder" class="selected-folder">
-          <span id="selectedFolderName">Kein Ordner ausgewählt</span>
-          <button class="btn btn-secondary btn-sm" onclick="clearFolderSelection()">✖</button>
-        </div>
-        <button class="btn btn-primary" onclick="showFolderDialog()">
-          🔧 Ordner auswählen
-        </button>
-      </div>
+      <select id="folderSelect" class="form-input">
+        <option value="">📁 Bitte wählen</option>
+      </select>
     </div>
 
     <div style="margin-bottom: 16px;">
@@ -79,36 +73,6 @@
     <div id="ticketList" class="ticket-list" style="display: none;"></div>
     <div id="selectedTicket" style="margin-top: 10px; display: none; padding: 10px; background: #e6f4ff; border-radius: 4px;">
       <strong>Ausgewähltes Ticket:</strong> <span id="selectedTicketInfo"></span>
-    </div>
-  </div>
-
-  <!-- Folder Selection Dialog -->
-  <div id="folderDialog" class="dialog-overlay" style="display: none;">
-    <div class="dialog-content">
-      <div class="dialog-header">
-        <h3>📁 Ordner auswählen</h3>
-        <button class="btn-close" onclick="hideFolderDialog()">×</button>
-      </div>
-      <div class="dialog-body">
-        <div class="form-group">
-          <label class="form-label">Mailbox-Adresse</label>
-          <div class="input-group">
-            <input 
-              type="text" 
-              id="mailboxInput" 
-              class="form-input" 
-              placeholder="z.B. user@domain.com"
-            />
-            <button class="btn btn-primary" onclick="loadMailboxFolders()">
-              🔄 Laden
-            </button>
-          </div>
-        </div>
-        <div id="folderList" class="folder-list"></div>
-      </div>
-      <div class="dialog-footer">
-        <button class="btn btn-secondary" onclick="hideFolderDialog()">Abbrechen</button>
-      </div>
     </div>
   </div>
 

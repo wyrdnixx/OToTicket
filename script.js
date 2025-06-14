@@ -205,8 +205,7 @@ function loadFolders() {
     const currentMailbox = Office.context.mailbox.userProfile.emailAddress;
     debugLog('Current mailbox: ' + currentMailbox);
 
-    // First, get the current user's folders
-    const currentMailboxRequest = `<?xml version="1.0" encoding="utf-8"?>
+    const request = `<?xml version="1.0" encoding="utf-8"?>
       <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                      xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                      xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -225,141 +224,49 @@ function loadFolders() {
         </soap:Body>
       </soap:Envelope>`;
 
-    // Get other mailboxes using GetMailTips
-    const mailTipsRequest = `<?xml version="1.0" encoding="utf-8"?>
-      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                     xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                     xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-        <soap:Header>
-          <t:RequestServerVersion Version="Exchange2013" />
-        </soap:Header>
-        <soap:Body>
-          <m:GetMailTips>
-            <m:RequestedMailTips>MailboxFullStatus</m:RequestedMailTips>
-            <m:Recipients>
-              <t:Mailbox>
-                <t:EmailAddress>${escapeXml(currentMailbox)}</t:EmailAddress>
-              </t:Mailbox>
-            </m:Recipients>
-          </m:GetMailTips>
-        </soap:Body>
-      </soap:Envelope>`;
-
-    debugLog('Sending mail tips request...');
-    
-    Office.context.mailbox.makeEwsRequestAsync(mailTipsRequest, function(mailTipsResult) {
-      if (mailTipsResult.status === Office.AsyncResultStatus.Succeeded) {
-        debugLog('Mail tips request successful');
+    Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
+        const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
         
-        // Get the list of mailboxes from the user's Outlook profile
-        const otherMailboxes = [];
-        try {
-          // Try to get other mailboxes from the current item's context
-          const item = Office.context.mailbox.item;
-          if (item && item.to) {
-            item.to.forEach(recipient => {
-              if (recipient.emailAddress && recipient.emailAddress !== currentMailbox) {
-                otherMailboxes.push(recipient.emailAddress);
-              }
-            });
+        debugLog('Found ' + folders.length + ' folders');
+        
+        const folderSelect = document.getElementById("folderSelect");
+        folderSelect.innerHTML = '<option value="">📁 Bitte wählen</option>';
+        
+        let totalFolders = 0;
+
+        for (let i = 0; i < folders.length; i++) {
+          const folder = folders[i];
+          const displayNameElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "DisplayName")[0];
+          const folderIdElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "FolderId")[0];
+
+          if (!displayNameElem || !folderIdElem) continue;
+
+          const displayName = displayNameElem.textContent;
+          const folderId = folderIdElem.getAttribute("Id");
+          const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
+
+          if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
+            continue;
           }
-        } catch (error) {
-          debugLog('Error getting other mailboxes: ' + error.message);
+
+          const option = document.createElement("option");
+          option.value = folderId + ";" + changeKey;
+          option.textContent = displayName;
+          folderSelect.appendChild(option);
+          totalFolders++;
         }
 
-        // Add some common mailboxes that might be accessible
-        const commonMailboxes = [
-          'otrs@ulewu.de',  // Replace with actual common mailboxes
-          'ulewu@example.com'
-        ];
-        
-        otherMailboxes.push(...commonMailboxes);
+        const savedFolder = Office.context.roamingSettings.get("lastSelectedFolder");
+        if (savedFolder) {
+          folderSelect.value = savedFolder;
+        }
 
-        debugLog('Found other mailboxes: ' + otherMailboxes.join(', '));
-
-        // Create folder requests for each mailbox
-        const folderRequests = [
-          { mailbox: currentMailbox, request: currentMailboxRequest }
-        ];
-
-        otherMailboxes.forEach(mailbox => {
-          const request = `<?xml version="1.0" encoding="utf-8"?>
-            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                           xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                           xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-              <soap:Header>
-                <t:RequestServerVersion Version="Exchange2013" />
-              </soap:Header>
-              <soap:Body>
-                <m:FindFolder Traversal="Deep">
-                  <m:FolderShape>
-                    <t:BaseShape>Default</t:BaseShape>
-                  </m:FolderShape>
-                  <m:ParentFolderIds>
-                    <t:DistinguishedFolderId Id="msgfolderroot">
-                      <t:Mailbox>
-                        <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
-                      </t:Mailbox>
-                    </t:DistinguishedFolderId>
-                  </m:ParentFolderIds>
-                </m:FindFolder>
-              </soap:Body>
-            </soap:Envelope>`;
-          folderRequests.push({ mailbox, request });
-        });
-
-        // Process each mailbox's folders
-        let processedCount = 0;
-        const allFolders = new Map();
-
-        folderRequests.forEach(({ mailbox, request }) => {
-          Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
-            processedCount++;
-            
-            if (result.status === Office.AsyncResultStatus.Succeeded) {
-              const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
-              const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
-              
-              debugLog(`Found ${folders.length} folders in ${mailbox}`);
-              
-              const mailboxFolders = [];
-              for (let i = 0; i < folders.length; i++) {
-                const folder = folders[i];
-                const displayNameElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "DisplayName")[0];
-                const folderIdElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "FolderId")[0];
-
-                if (!displayNameElem || !folderIdElem) continue;
-
-                const displayName = displayNameElem.textContent;
-                const folderId = folderIdElem.getAttribute("Id");
-                const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
-
-                if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
-                  continue;
-                }
-
-                mailboxFolders.push({
-                  displayName,
-                  value: folderId + ";" + changeKey + ";" + mailbox,
-                  mailbox
-                });
-              }
-
-              if (mailboxFolders.length > 0) {
-                allFolders.set(mailbox, mailboxFolders);
-              }
-            }
-
-            // When all requests are processed, update the UI
-            if (processedCount === folderRequests.length) {
-              updateFolderSelect(allFolders, currentMailbox);
-            }
-          });
-        });
+        updateStatus(`✅ ${totalFolders} Ordner geladen - bereit`);
+        notify('success', `${totalFolders} Ordner erfolgreich geladen`, true);
       } else {
-        debugLog('Mail tips request failed: ' + (mailTipsResult.error ? mailTipsResult.error.message : 'Unknown error'));
-        // Fallback to just loading current mailbox folders
-        loadCurrentMailboxFolders();
+        addFallbackFolders();
       }
     });
     
@@ -367,114 +274,8 @@ function loadFolders() {
     debugLog('Error in loadFolders: ' + error.message);
     updateStatus('❌ Fehler beim Laden der Ordner');
     notify('error', 'Fehler beim Laden der Ordner: ' + error.message);
-    loadCurrentMailboxFolders();
+    addFallbackFolders();
   }
-}
-
-function loadCurrentMailboxFolders() {
-  const currentMailbox = Office.context.mailbox.userProfile.emailAddress;
-  const request = `<?xml version="1.0" encoding="utf-8"?>
-    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-                   xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
-                   xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
-      <soap:Header>
-        <t:RequestServerVersion Version="Exchange2013" />
-      </soap:Header>
-      <soap:Body>
-        <m:FindFolder Traversal="Deep">
-          <m:FolderShape>
-            <t:BaseShape>Default</t:BaseShape>
-          </m:FolderShape>
-          <m:ParentFolderIds>
-            <t:DistinguishedFolderId Id="msgfolderroot" />
-          </m:ParentFolderIds>
-        </m:FindFolder>
-      </soap:Body>
-    </soap:Envelope>`;
-
-  Office.context.mailbox.makeEwsRequestAsync(request, function(result) {
-    if (result.status === Office.AsyncResultStatus.Succeeded) {
-      const allFolders = new Map();
-      const xmlDoc = new DOMParser().parseFromString(result.value, "text/xml");
-      const folders = xmlDoc.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "Folder");
-      
-      const mailboxFolders = [];
-      for (let i = 0; i < folders.length; i++) {
-        const folder = folders[i];
-        const displayNameElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "DisplayName")[0];
-        const folderIdElem = folder.getElementsByTagNameNS("http://schemas.microsoft.com/exchange/services/2006/types", "FolderId")[0];
-
-        if (!displayNameElem || !folderIdElem) continue;
-
-        const displayName = displayNameElem.textContent;
-        const folderId = folderIdElem.getAttribute("Id");
-        const changeKey = folderIdElem.getAttribute("ChangeKey") || "";
-
-        if (displayName.startsWith("~") || displayName === "Conversation Action Settings") {
-          continue;
-        }
-
-        mailboxFolders.push({
-          displayName,
-          value: folderId + ";" + changeKey + ";" + currentMailbox,
-          mailbox: currentMailbox
-        });
-      }
-
-      allFolders.set(currentMailbox, mailboxFolders);
-      updateFolderSelect(allFolders, currentMailbox);
-    } else {
-      addFallbackFolders();
-    }
-  });
-}
-
-function updateFolderSelect(allFolders, currentMailbox) {
-  const folderSelect = document.getElementById("folderSelect");
-  folderSelect.innerHTML = '<option value="">📁 Bitte wählen</option>';
-
-  // Sort mailboxes (current mailbox first)
-  const sortedMailboxes = Array.from(allFolders.keys()).sort((a, b) => {
-    if (a === currentMailbox) return -1;
-    if (b === currentMailbox) return 1;
-    return a.localeCompare(b);
-  });
-
-  let totalFolders = 0;
-
-  // Add folders grouped by mailbox
-  sortedMailboxes.forEach(mailbox => {
-    const mailboxFolders = allFolders.get(mailbox);
-    if (!mailboxFolders || mailboxFolders.length === 0) return;
-
-    const isCurrentMailbox = mailbox === currentMailbox;
-    const mailboxName = isCurrentMailbox ? "Meine Mailbox" : mailbox.split('@')[0];
-    
-    // Add mailbox group header
-    const optgroup = document.createElement("optgroup");
-    optgroup.label = `📧 ${mailboxName}`;
-    folderSelect.appendChild(optgroup);
-
-    // Sort folders alphabetically
-    mailboxFolders.sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-    // Add folders for this mailbox
-    mailboxFolders.forEach(folder => {
-      const option = document.createElement("option");
-      option.value = folder.value;
-      option.textContent = folder.displayName;
-      optgroup.appendChild(option);
-      totalFolders++;
-    });
-  });
-
-  const savedFolder = Office.context.roamingSettings.get("lastSelectedFolder");
-  if (savedFolder) {
-    folderSelect.value = savedFolder;
-  }
-
-  updateStatus(`✅ ${totalFolders} Ordner geladen - bereit`);
-  notify('success', `${totalFolders} Ordner erfolgreich geladen`, true);
 }
 
 function addFallbackFolders() {
@@ -671,6 +472,8 @@ function loadMailboxFolders() {
 }
 
 function getItemDetails(itemId) {
+  debugLog('Getting item details for ID: ' + itemId);
+  
   const getItemSoap = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
@@ -681,7 +484,10 @@ function getItemDetails(itemId) {
       <soap:Body>
         <m:GetItem>
           <m:ItemShape>
-            <t:BaseShape>IdOnly</t:BaseShape>
+            <t:BaseShape>Default</t:BaseShape>
+            <t:AdditionalProperties>
+              <t:FieldURI FieldURI="item:ItemId"/>
+            </t:AdditionalProperties>
           </m:ItemShape>
           <m:ItemIds>
             <t:ItemId Id="${escapeXml(itemId)}"/>
@@ -693,24 +499,39 @@ function getItemDetails(itemId) {
   return new Promise((resolve, reject) => {
     Office.context.mailbox.makeEwsRequestAsync(getItemSoap, function(result) {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
+        debugLog('GetItem response: ' + result.value);
         const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
+        
+        // Check for SOAP fault
+        const fault = responseXml.getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "Fault");
+        if (fault.length > 0) {
+          const faultString = fault[0].getElementsByTagNameNS("http://schemas.xmlsoap.org/soap/envelope/", "faultstring")[0];
+          const errorMsg = faultString ? faultString.textContent : 'Unknown SOAP fault';
+          debugLog('SOAP Fault: ' + errorMsg);
+          reject(new Error(errorMsg));
+          return;
+        }
+
         const item = responseXml.getElementsByTagName('t:ItemId')[0];
         if (item) {
-          resolve({
-            id: item.getAttribute('Id'),
-            changeKey: item.getAttribute('ChangeKey')
-          });
+          const id = item.getAttribute('Id');
+          const changeKey = item.getAttribute('ChangeKey');
+          debugLog('Got item ID: ' + id + ', ChangeKey: ' + changeKey);
+          resolve({ id, changeKey });
         } else {
           reject(new Error('No item found in response'));
         }
       } else {
-        reject(new Error(result.error ? result.error.message : 'Unknown error getting item details'));
+        const errorMsg = result.error ? result.error.message : 'Unknown error';
+        debugLog('GetItem error: ' + errorMsg);
+        reject(new Error(errorMsg));
       }
     });
   });
 }
 
-function copyEmail() {
+// Modify the copyEmail function to use GetItem
+async function copyEmail() {
   debugLog('Copy email function called');
   
   if (!officeReady) {
@@ -725,7 +546,9 @@ function copyEmail() {
     document.getElementById('ticket').focus();
     return;
   }
-  if (!selectedFolder) {
+
+  const folderSelect = document.getElementById('folderSelect');
+  if (!folderSelect.value) {
     notify('error', '❌ Bitte Zielordner auswählen');
     return;
   }
@@ -747,30 +570,18 @@ function copyEmail() {
   debugLog('Source item ID: ' + item.itemId);
 
   try {
-    const [folderId, changeKey, mailbox] = selectedFolder.value.split(";");
-    const currentMailbox = Office.context.mailbox.userProfile.emailAddress;
-    
+    const [folderId, changeKey] = folderSelect.value.split(";");
     debugLog('Target folder: ' + folderId);
-    debugLog('Target mailbox: ' + mailbox);
     
     let targetFolder;
-    if (mailbox === currentMailbox) {
-      if (folderId === 'inbox') {
-        targetFolder = '<t:DistinguishedFolderId Id="inbox" />';
-      } else if (folderId === 'sentitems') {
-        targetFolder = '<t:DistinguishedFolderId Id="sentitems" />';
-      } else if (folderId === 'drafts') {
-        targetFolder = '<t:DistinguishedFolderId Id="drafts" />';
-      } else {
-        targetFolder = `<t:FolderId Id="${escapeXml(folderId)}" ChangeKey="${escapeXml(changeKey)}"/>`;
-      }
+    if (folderId === 'inbox') {
+      targetFolder = '<t:DistinguishedFolderId Id="inbox" />';
+    } else if (folderId === 'sentitems') {
+      targetFolder = '<t:DistinguishedFolderId Id="sentitems" />';
+    } else if (folderId === 'drafts') {
+      targetFolder = '<t:DistinguishedFolderId Id="drafts" />';
     } else {
-      // For other mailboxes, we need to specify the mailbox
-      targetFolder = `<t:FolderId Id="${escapeXml(folderId)}" ChangeKey="${escapeXml(changeKey)}">
-        <t:Mailbox>
-          <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
-        </t:Mailbox>
-      </t:FolderId>`;
+      targetFolder = `<t:FolderId Id="${escapeXml(folderId)}" ChangeKey="${escapeXml(changeKey)}"/>`;
     }
 
     const copySoap = `<?xml version="1.0" encoding="utf-8"?>
@@ -779,9 +590,6 @@ function copyEmail() {
                      xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
         <soap:Header>
           <t:RequestServerVersion Version="Exchange2013"/>
-          <t:TimeZoneContext>
-            <t:TimeZoneDefinition Id="W. Europe Standard Time"/>
-          </t:TimeZoneContext>
         </soap:Header>
         <soap:Body>
           <m:CopyItem>
@@ -812,7 +620,7 @@ function copyEmail() {
           const newItemId = copiedItem.getAttribute('Id');
           const newChangeKey = copiedItem.getAttribute('ChangeKey');
           const newSubject = `[MCB#${ticket}] ${emailData.subject}`;
-          updateSubject(newItemId, newChangeKey, newSubject, mailbox);
+          updateSubject(newItemId, newChangeKey, newSubject);
         } else {
           notify('success', '✅ E-Mail wurde erfolgreich kopiert');
         }
@@ -832,10 +640,9 @@ function copyEmail() {
   }
 }
 
-function updateSubject(itemId, changeKey, newSubject, mailbox) {
+function updateSubject(itemId, changeKey, newSubject) {
   debugLog('Updating subject for item: ' + itemId);
   debugLog('New subject: ' + newSubject);
-  debugLog('Target mailbox: ' + mailbox);
 
   const updateSoap = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
@@ -843,9 +650,6 @@ function updateSubject(itemId, changeKey, newSubject, mailbox) {
                    xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
       <soap:Header>
         <t:RequestServerVersion Version="Exchange2013" />
-        <t:TimeZoneContext>
-          <t:TimeZoneDefinition Id="W. Europe Standard Time"/>
-        </t:TimeZoneContext>
       </soap:Header>
       <soap:Body>
         <m:UpdateItem MessageDisposition="SaveOnly" ConflictResolution="AutoResolve">
