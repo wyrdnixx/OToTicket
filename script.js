@@ -529,7 +529,7 @@ function loadMailboxFolders() {
   debugLog('Loading folders for mailbox: ' + mailbox);
 
   // Directly try to access the target mailbox folders
-  const request = `<?xml version="1.0" encoding="utf-8"?>
+  /* const request = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                    xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -546,7 +546,7 @@ function loadMailboxFolders() {
             <t:BaseShape>Default</t:BaseShape>
           </m:FolderShape>
           <m:ParentFolderIds>
-            <t:DistinguishedFolderId Id="msgfolderroot">
+            <t:DistinguishedFolderId Id="Posteingang">
               <t:Mailbox>
                 <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
                 <t:RoutingType>SMTP</t:RoutingType>
@@ -555,7 +555,26 @@ function loadMailboxFolders() {
           </m:ParentFolderIds>
         </m:FindFolder>
       </soap:Body>
-    </soap:Envelope>`;
+    </soap:Envelope>`; */
+
+  const request = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <FindFolder Traversal="Deep" xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
+      <FolderShape>
+        <t:BaseShape>Default</t:BaseShape>
+      </FolderShape>
+      <ParentFolderIds>
+        <t:DistinguishedFolderId Id="msgfolderroot"/>
+          <t:Mailbox>
+                <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
+                <t:RoutingType>SMTP</t:RoutingType>
+              </t:Mailbox>
+      </ParentFolderIds>
+    </FindFolder>
+  </soap:Body>
+</soap:Envelope>`;
 
   debugLog('Sending FindFolder request: ' + request);
 
@@ -651,6 +670,46 @@ function loadMailboxFolders() {
   });
 }
 
+function getItemDetails(itemId) {
+  const getItemSoap = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+                   xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
+                   xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
+      <soap:Header>
+        <t:RequestServerVersion Version="Exchange2013"/>
+      </soap:Header>
+      <soap:Body>
+        <m:GetItem>
+          <m:ItemShape>
+            <t:BaseShape>IdOnly</t:BaseShape>
+          </m:ItemShape>
+          <m:ItemIds>
+            <t:ItemId Id="${escapeXml(itemId)}"/>
+          </m:ItemIds>
+        </m:GetItem>
+      </soap:Body>
+    </soap:Envelope>`;
+
+  return new Promise((resolve, reject) => {
+    Office.context.mailbox.makeEwsRequestAsync(getItemSoap, function(result) {
+      if (result.status === Office.AsyncResultStatus.Succeeded) {
+        const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
+        const item = responseXml.getElementsByTagName('t:ItemId')[0];
+        if (item) {
+          resolve({
+            id: item.getAttribute('Id'),
+            changeKey: item.getAttribute('ChangeKey')
+          });
+        } else {
+          reject(new Error('No item found in response'));
+        }
+      } else {
+        reject(new Error(result.error ? result.error.message : 'Unknown error getting item details'));
+      }
+    });
+  });
+}
+
 function copyEmail() {
   debugLog('Copy email function called');
   
@@ -671,6 +730,13 @@ function copyEmail() {
     return;
   }
 
+  // Validate email item
+  const item = Office.context.mailbox.item;
+  if (!item || !item.itemId) {
+    notify('error', '❌ Keine E-Mail zum Kopieren ausgewählt');
+    return;
+  }
+
   // Disable button during operation
   const copyBtn = document.getElementById('copyBtn');
   copyBtn.disabled = true;
@@ -678,10 +744,14 @@ function copyEmail() {
 
   notify('info', '📋 E‑Mail wird kopiert…');
   debugLog('Starting email copy process...');
+  debugLog('Source item ID: ' + item.itemId);
 
   try {
     const [folderId, changeKey, mailbox] = selectedFolder.value.split(";");
     const currentMailbox = Office.context.mailbox.userProfile.emailAddress;
+    
+    debugLog('Target folder: ' + folderId);
+    debugLog('Target mailbox: ' + mailbox);
     
     let targetFolder;
     if (mailbox === currentMailbox) {
@@ -709,6 +779,9 @@ function copyEmail() {
                      xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
         <soap:Header>
           <t:RequestServerVersion Version="Exchange2013"/>
+          <t:TimeZoneContext>
+            <t:TimeZoneDefinition Id="W. Europe Standard Time"/>
+          </t:TimeZoneContext>
         </soap:Header>
         <soap:Body>
           <m:CopyItem>
@@ -716,11 +789,13 @@ function copyEmail() {
               ${targetFolder}
             </m:ToFolderId>
             <m:ItemIds>
-              <t:ItemId Id="${escapeXml(Office.context.mailbox.item.itemId)}"/>
+              <t:ItemId Id="${escapeXml(item.itemId)}"/>
             </m:ItemIds>
           </m:CopyItem>
         </soap:Body>
       </soap:Envelope>`;
+
+    debugLog('Sending copy request: ' + copySoap);
 
     Office.context.mailbox.makeEwsRequestAsync(copySoap, function(result) {
       copyBtn.disabled = false;
@@ -728,6 +803,7 @@ function copyEmail() {
 
       if (result.status === Office.AsyncResultStatus.Succeeded) {
         debugLog('Email copy successful');
+        debugLog('Copy response: ' + result.value);
         
         const responseXml = new DOMParser().parseFromString(result.value, 'text/xml');
         const copiedItem = responseXml.getElementsByTagName('t:ItemId')[0];
@@ -756,13 +832,20 @@ function copyEmail() {
   }
 }
 
-function updateSubject(itemId, changeKey, newSubject) {
-  const updateSoap = `
+function updateSubject(itemId, changeKey, newSubject, mailbox) {
+  debugLog('Updating subject for item: ' + itemId);
+  debugLog('New subject: ' + newSubject);
+  debugLog('Target mailbox: ' + mailbox);
+
+  const updateSoap = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                    xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
       <soap:Header>
         <t:RequestServerVersion Version="Exchange2013" />
+        <t:TimeZoneContext>
+          <t:TimeZoneDefinition Id="W. Europe Standard Time"/>
+        </t:TimeZoneContext>
       </soap:Header>
       <soap:Body>
         <m:UpdateItem MessageDisposition="SaveOnly" ConflictResolution="AutoResolve">
@@ -783,11 +866,18 @@ function updateSubject(itemId, changeKey, newSubject) {
       </soap:Body>
     </soap:Envelope>`;
 
+  debugLog('Sending update subject request: ' + updateSoap);
+
   Office.context.mailbox.makeEwsRequestAsync(updateSoap, result => {
     if (result.status === Office.AsyncResultStatus.Succeeded) {
+      debugLog('Subject update successful');
+      debugLog('Update response: ' + result.value);
       notify('success', '✅ E-Mail wurde erfolgreich kopiert und Betreff angepasst.', true);
     } else {
-      notify('error', '❌ Fehler beim Aktualisieren des Betreffs: ' + (result.error ? result.error.message : 'Unbekannt'));
+      const errorMsg = result.error ? result.error.message : 'Unbekannter Fehler';
+      debugLog('Subject update error: ' + errorMsg);
+      debugLog('Error response: ' + result.value);
+      notify('error', '❌ Fehler beim Aktualisieren des Betreffs: ' + errorMsg);
     }
   });
 }
