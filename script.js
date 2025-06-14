@@ -529,7 +529,7 @@ function loadMailboxFolders() {
   debugLog('Loading folders for mailbox: ' + mailbox);
 
   // Directly try to access the target mailbox folders
-  const request = `<?xml version="1.0" encoding="utf-8"?>
+  /* const request = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                    xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types"
                    xmlns:m="http://schemas.microsoft.com/exchange/services/2006/messages">
@@ -546,7 +546,7 @@ function loadMailboxFolders() {
             <t:BaseShape>Default</t:BaseShape>
           </m:FolderShape>
           <m:ParentFolderIds>
-            <t:DistinguishedFolderId Id="msgfolderroot">
+            <t:DistinguishedFolderId Id="Posteingang">
               <t:Mailbox>
                 <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
                 <t:RoutingType>SMTP</t:RoutingType>
@@ -555,7 +555,26 @@ function loadMailboxFolders() {
           </m:ParentFolderIds>
         </m:FindFolder>
       </soap:Body>
-    </soap:Envelope>`;
+    </soap:Envelope>`; */
+
+  const request = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+  xmlns:t="http://schemas.microsoft.com/exchange/services/2006/types">
+  <soap:Body>
+    <FindFolder Traversal="Deep" xmlns="http://schemas.microsoft.com/exchange/services/2006/messages">
+      <FolderShape>
+        <t:BaseShape>Default</t:BaseShape>
+      </FolderShape>
+      <ParentFolderIds>
+        <t:DistinguishedFolderId Id="msgfolderroot"/>
+          <t:Mailbox>
+                <t:EmailAddress>${escapeXml(mailbox)}</t:EmailAddress>
+                <t:RoutingType>SMTP</t:RoutingType>
+              </t:Mailbox>
+      </ParentFolderIds>
+    </FindFolder>
+  </soap:Body>
+</soap:Envelope>`;
 
   debugLog('Sending FindFolder request: ' + request);
 
